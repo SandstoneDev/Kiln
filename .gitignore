@@ -1,0 +1,35 @@
+# converter executables and their DLLs (built or copied locally, shipped only in an audited bundle)
+bin/
+build/
+dist/
+
+# never: game data, extracted or converted files, run outputs
+*.mpq
+*.MPQ
+*.pak
+*.blp
+*.dbc
+out/
+work/
+logs/
+
+# Python
+__pycache__/
+*.pyc
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Windows front end (gui/) and bundle (packaging/build_bundle.ps1): build output, caches, staging
+obj/
+.vs/
+*.user
+
+# developer-only tools (kept locally, not part of the published tree)
+.githooks/
+tools/
+CONTRIBUTING.md
+packaging/build_bundle.ps1
+packaging/README_BUNDLE.txt

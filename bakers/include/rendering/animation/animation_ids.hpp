@@ -1,0 +1,564 @@
+#pragma once
+// ============================================================================
+// M2 Animation IDs - AnimationData.dbc
+//
+// Complete list from https://wowdev.wiki/M2/AnimationList
+// Community names in comments describe what each animation looks like in-game.
+// Organized by World of Warcraft expansion for easier management.
+// ============================================================================
+
+#include <cstdint>
+#include <memory>
+
+namespace wowee {
+namespace pipeline { class DBCFile; }
+namespace rendering {
+namespace anim {
+
+// ============================================================================
+// Classic (Vanilla WoW 1.x) - Core character & creature animations
+// IDs 0–145
+// ============================================================================
+
+constexpr uint32_t STAND                      = 0;   // Idle standing pose
+constexpr uint32_t DEATH                      = 1;   // Death animation
+constexpr uint32_t SPELL                      = 2;   // Generic spell cast
+constexpr uint32_t STOP                       = 3;   // Transition to stop
+constexpr uint32_t WALK                       = 4;   // Walking forward
+constexpr uint32_t RUN                        = 5;   // Running forward
+constexpr uint32_t DEAD                       = 6;   // Corpse on the ground
+constexpr uint32_t RISE                       = 7;   // Rising from death (resurrection)
+constexpr uint32_t STAND_WOUND               = 8;   // Wounded idle stance
+constexpr uint32_t COMBAT_WOUND              = 9;   // Wounded combat idle
+constexpr uint32_t COMBAT_CRITICAL           = 10;  // Critical hit reaction
+constexpr uint32_t SHUFFLE_LEFT              = 11;  // Strafe walk left
+constexpr uint32_t SHUFFLE_RIGHT             = 12;  // Strafe walk right
+constexpr uint32_t WALK_BACKWARDS            = 13;  // Walking backwards / backpedal
+constexpr uint32_t STUN                      = 14;  // Stunned
+constexpr uint32_t HANDS_CLOSED              = 15;  // Hands closed (weapon grip idle)
+constexpr uint32_t ATTACK_UNARMED            = 16;  // Unarmed melee attack
+constexpr uint32_t ATTACK_1H                 = 17;  // One-handed melee attack
+constexpr uint32_t ATTACK_2H                 = 18;  // Two-handed melee attack
+constexpr uint32_t ATTACK_2H_LOOSE           = 19;  // Polearm/staff two-hand attack
+constexpr uint32_t PARRY_UNARMED             = 20;  // Unarmed parry
+constexpr uint32_t PARRY_1H                  = 21;  // One-handed weapon parry
+constexpr uint32_t PARRY_2H                  = 22;  // Two-handed weapon parry
+constexpr uint32_t PARRY_2H_LOOSE            = 23;  // Polearm/staff parry
+constexpr uint32_t SHIELD_BLOCK              = 24;  // Shield block
+constexpr uint32_t READY_UNARMED             = 25;  // Unarmed combat ready stance
+constexpr uint32_t READY_1H                  = 26;  // One-handed weapon ready stance
+constexpr uint32_t READY_2H                  = 27;  // Two-handed weapon ready stance
+constexpr uint32_t READY_2H_LOOSE            = 28;  // Polearm/staff ready stance
+constexpr uint32_t READY_BOW                 = 29;  // Bow ready stance
+constexpr uint32_t DODGE                     = 30;  // Dodge
+constexpr uint32_t SPELL_PRECAST             = 31;  // Spell precast wind-up
+constexpr uint32_t SPELL_CAST                = 32;  // Spell cast
+constexpr uint32_t SPELL_CAST_AREA           = 33;  // Area-of-effect spell cast
+constexpr uint32_t NPC_WELCOME               = 34;  // NPC greeting animation
+constexpr uint32_t NPC_GOODBYE               = 35;  // NPC farewell animation
+constexpr uint32_t BLOCK                     = 36;  // Block
+constexpr uint32_t JUMP_START                = 37;  // Jump takeoff
+constexpr uint32_t JUMP                      = 38;  // Mid-air jump loop
+constexpr uint32_t JUMP_END                  = 39;  // Jump landing
+constexpr uint32_t FALL                      = 40;  // Falling
+constexpr uint32_t SWIM_IDLE                 = 41;  // Treading water
+constexpr uint32_t SWIM                      = 42;  // Swimming forward
+constexpr uint32_t SWIM_LEFT                 = 43;  // Swim strafe left
+constexpr uint32_t SWIM_RIGHT                = 44;  // Swim strafe right
+constexpr uint32_t SWIM_BACKWARDS            = 45;  // Swim backwards
+constexpr uint32_t ATTACK_BOW                = 46;  // Bow attack
+constexpr uint32_t FIRE_BOW                  = 47;  // Fire bow shot
+constexpr uint32_t READY_RIFLE               = 48;  // Rifle/gun ready stance
+constexpr uint32_t ATTACK_RIFLE              = 49;  // Rifle/gun attack
+constexpr uint32_t LOOT                      = 50;  // Looting / bending down to pick up
+constexpr uint32_t READY_SPELL_DIRECTED      = 51;  // Directed spell ready
+constexpr uint32_t READY_SPELL_OMNI          = 52;  // Omni spell ready
+constexpr uint32_t SPELL_CAST_DIRECTED       = 53;  // Directed spell cast
+constexpr uint32_t SPELL_CAST_OMNI           = 54;  // Omni spell cast
+constexpr uint32_t BATTLE_ROAR               = 55;  // Battle shout / roar
+constexpr uint32_t READY_ABILITY             = 56;  // Ability ready stance
+constexpr uint32_t SPECIAL_1H                = 57;  // Special one-handed attack
+constexpr uint32_t SPECIAL_2H                = 58;  // Special two-handed attack
+constexpr uint32_t SHIELD_BASH               = 59;  // Shield bash
+constexpr uint32_t EMOTE_TALK                = 60;  // /talk
+constexpr uint32_t EMOTE_EAT                 = 61;  // /eat
+constexpr uint32_t EMOTE_WORK                = 62;  // /work
+constexpr uint32_t EMOTE_USE_STANDING        = 63;  // Standing use animation
+constexpr uint32_t EMOTE_EXCLAMATION         = 64;  // NPC exclamation (!)
+constexpr uint32_t EMOTE_QUESTION            = 65;  // NPC question (?)
+constexpr uint32_t EMOTE_BOW                 = 66;  // /bow
+constexpr uint32_t EMOTE_WAVE                = 67;  // /wave
+constexpr uint32_t EMOTE_CHEER               = 68;  // /cheer
+constexpr uint32_t EMOTE_DANCE               = 69;  // /dance
+constexpr uint32_t EMOTE_LAUGH               = 70;  // /laugh
+constexpr uint32_t EMOTE_SLEEP               = 71;  // /sleep
+constexpr uint32_t EMOTE_SIT_GROUND          = 72;  // /sit on ground
+constexpr uint32_t EMOTE_RUDE                = 73;  // /rude
+constexpr uint32_t EMOTE_ROAR                = 74;  // /roar
+constexpr uint32_t EMOTE_KNEEL               = 75;  // /kneel
+constexpr uint32_t EMOTE_KISS                = 76;  // /kiss
+constexpr uint32_t EMOTE_CRY                 = 77;  // /cry
+constexpr uint32_t EMOTE_CHICKEN             = 78;  // /chicken - flap arms and strut
+constexpr uint32_t EMOTE_BEG                 = 79;  // /beg
+constexpr uint32_t EMOTE_APPLAUD             = 80;  // /applaud
+constexpr uint32_t EMOTE_SHOUT               = 81;  // /shout
+constexpr uint32_t EMOTE_FLEX                = 82;  // /flex - show off muscles
+constexpr uint32_t EMOTE_SHY                 = 83;  // /shy
+constexpr uint32_t EMOTE_POINT               = 84;  // /point
+constexpr uint32_t ATTACK_1H_PIERCE          = 85;  // One-handed pierce (dagger stab)
+constexpr uint32_t ATTACK_2H_LOOSE_PIERCE    = 86;  // Polearm/staff pierce
+constexpr uint32_t ATTACK_OFF                = 87;  // Off-hand attack
+constexpr uint32_t ATTACK_OFF_PIERCE         = 88;  // Off-hand pierce attack
+constexpr uint32_t SHEATHE                   = 89;  // Sheathe weapons
+constexpr uint32_t HIP_SHEATHE               = 90;  // Hip sheathe
+constexpr uint32_t MOUNT                     = 91;  // Mounted idle
+constexpr uint32_t RUN_RIGHT                 = 92;  // Strafe run right
+constexpr uint32_t RUN_LEFT                  = 93;  // Strafe run left
+constexpr uint32_t MOUNT_SPECIAL             = 94;  // Mount rearing / special move
+constexpr uint32_t KICK                      = 95;  // Kick
+constexpr uint32_t SIT_GROUND_DOWN           = 96;  // Transition: standing → sitting
+constexpr uint32_t SITTING                   = 97;  // Sitting on ground loop
+constexpr uint32_t SIT_GROUND_UP             = 98;  // Transition: sitting → standing
+constexpr uint32_t SLEEP_DOWN                = 99;  // Transition: standing → sleeping
+constexpr uint32_t SLEEP                     = 100; // Sleeping loop
+constexpr uint32_t SLEEP_UP                  = 101; // Transition: sleeping → standing
+constexpr uint32_t SIT_CHAIR_LOW             = 102; // Sit in low chair
+constexpr uint32_t SIT_CHAIR_MED             = 103; // Sit in medium chair
+constexpr uint32_t SIT_CHAIR_HIGH            = 104; // Sit in high chair
+constexpr uint32_t LOAD_BOW                  = 105; // Nock/load bow
+constexpr uint32_t LOAD_RIFLE               = 106; // Load rifle/gun
+constexpr uint32_t ATTACK_THROWN             = 107; // Thrown weapon attack
+constexpr uint32_t READY_THROWN              = 108; // Thrown weapon ready
+constexpr uint32_t HOLD_BOW                  = 109; // Hold bow idle
+constexpr uint32_t HOLD_RIFLE               = 110; // Hold rifle/gun idle
+constexpr uint32_t HOLD_THROWN              = 111; // Hold thrown weapon idle
+constexpr uint32_t LOAD_THROWN              = 112; // Load thrown weapon
+constexpr uint32_t EMOTE_SALUTE              = 113; // /salute
+constexpr uint32_t KNEEL_START               = 114; // Transition: standing → kneeling
+constexpr uint32_t KNEEL_LOOP                = 115; // Kneeling loop
+constexpr uint32_t KNEEL_END                 = 116; // Transition: kneeling → standing
+constexpr uint32_t ATTACK_UNARMED_OFF        = 117; // Off-hand unarmed attack
+constexpr uint32_t SPECIAL_UNARMED           = 118; // Special unarmed attack
+constexpr uint32_t STEALTH_WALK              = 119; // Stealth walking (rogue sneak)
+constexpr uint32_t STEALTH_STAND             = 120; // Stealth standing idle
+constexpr uint32_t KNOCKDOWN                 = 121; // Knocked down
+constexpr uint32_t EATING_LOOP               = 122; // Eating loop (food/drink)
+constexpr uint32_t USE_STANDING_LOOP         = 123; // Use standing loop
+constexpr uint32_t CHANNEL_CAST_DIRECTED     = 124; // Channeled directed cast
+constexpr uint32_t CHANNEL_CAST_OMNI         = 125; // Channeled omni cast
+constexpr uint32_t WHIRLWIND                 = 126; // Whirlwind attack (warrior)
+constexpr uint32_t BIRTH                     = 127; // Creature birth/spawn
+constexpr uint32_t USE_STANDING_START        = 128; // Use standing start
+constexpr uint32_t USE_STANDING_END          = 129; // Use standing end
+constexpr uint32_t CREATURE_SPECIAL          = 130; // Creature special ability
+constexpr uint32_t DROWN                     = 131; // Drowning
+constexpr uint32_t DROWNED                   = 132; // Drowned corpse underwater
+constexpr uint32_t FISHING_CAST              = 133; // Fishing cast
+constexpr uint32_t FISHING_LOOP              = 134; // Fishing idle loop
+constexpr uint32_t FLY                       = 135; // Flying generic
+
+// What a flying mount or creature does in the air, by 3.3.5's own numbers:
+// "Fly" moving and "Hover" staying put, from its AnimationData.dbc. These sat
+// at 158 and 159 in the block below, which 3.3.5 calls Hold and Decay - no
+// model has either for flight, so every flying mount fell back to running and
+// standing in the air. The gryphon, wyvern and nether drake mounts all carry
+// 135; the wyvern has no 193, and a caller asking for it falls back.
+constexpr uint32_t FLY_FORWARD               = 135; // Fly
+constexpr uint32_t FLY_IDLE                  = 193; // Hover
+constexpr uint32_t EMOTE_WORK_NO_SHEATHE     = 136; // Work emote (no weapon sheathe)
+constexpr uint32_t EMOTE_STUN_NO_SHEATHE     = 137; // Stun emote (no weapon sheathe)
+constexpr uint32_t EMOTE_USE_STANDING_NO_SHEATHE = 138; // Use standing (no weapon sheathe)
+constexpr uint32_t SPELL_SLEEP_DOWN          = 139; // Spell-induced sleep down
+constexpr uint32_t SPELL_KNEEL_START         = 140; // Spell-induced kneel start
+constexpr uint32_t SPELL_KNEEL_LOOP          = 141; // Spell-induced kneel loop
+constexpr uint32_t SPELL_KNEEL_END           = 142; // Spell-induced kneel end
+constexpr uint32_t SPRINT                    = 143; // Sprint / Custom Spell 01
+constexpr uint32_t IN_FLIGHT                 = 144; // In-flight (flight path travel)
+constexpr uint32_t SPAWN                     = 145; // Object/creature spawn animation
+
+// ============================================================================
+// IDs 146-505, as 3.3.5's AnimationData.dbc numbers and names them.
+//
+// Generated from that table. What stood here was transcribed from a list that
+// dropped Opened at 149 and parted company with the game from there on - 311
+// of these named something else, so a flying mount asked for Hold and Decay
+// to fly with, an Undead fighting with a fist weapon played Cannibalize, and
+// /eat as a state emote played LootHold. IDs never move between clients, so
+// this is the numbering every expansion here shares.
+// ============================================================================
+
+constexpr uint32_t CLOSE                          = 146; // Close
+constexpr uint32_t CLOSED                         = 147; // Closed
+constexpr uint32_t OPEN                           = 148; // Open
+constexpr uint32_t OPENED                         = 149; // Opened
+constexpr uint32_t DESTROY                        = 150; // Destroy
+constexpr uint32_t DESTROYED                      = 151; // Destroyed
+constexpr uint32_t REBUILD                        = 152; // Rebuild
+constexpr uint32_t CUSTOM_0                       = 153; // Custom0
+constexpr uint32_t CUSTOM_1                       = 154; // Custom1
+constexpr uint32_t CUSTOM_2                       = 155; // Custom2
+constexpr uint32_t CUSTOM_3                       = 156; // Custom3
+constexpr uint32_t DESPAWN                        = 157; // Despawn
+constexpr uint32_t HOLD                           = 158; // Hold
+constexpr uint32_t DECAY                          = 159; // Decay
+constexpr uint32_t BOW_PULL                       = 160; // BowPull
+constexpr uint32_t BOW_RELEASE                    = 161; // BowRelease
+constexpr uint32_t SHIP_START                     = 162; // ShipStart
+constexpr uint32_t SHIP_MOVING                    = 163; // ShipMoving
+constexpr uint32_t SHIP_STOP                      = 164; // ShipStop
+constexpr uint32_t GROUP_ARROW                    = 165; // GroupArrow
+constexpr uint32_t ARROW                          = 166; // Arrow
+constexpr uint32_t CORPSE_ARROW                   = 167; // CorpseArrow
+constexpr uint32_t GUIDE_ARROW                    = 168; // GuideArrow
+constexpr uint32_t SWAY                           = 169; // Sway
+constexpr uint32_t DRUID_CAT_POUNCE               = 170; // DruidCatPounce
+constexpr uint32_t DRUID_CAT_RIP                  = 171; // DruidCatRip
+constexpr uint32_t DRUID_CAT_RAKE                 = 172; // DruidCatRake
+constexpr uint32_t DRUID_CAT_RAVAGE               = 173; // DruidCatRavage
+constexpr uint32_t DRUID_CAT_CLAW                 = 174; // DruidCatClaw
+constexpr uint32_t DRUID_CAT_COWER                = 175; // DruidCatCower
+constexpr uint32_t DRUID_BEAR_SWIPE               = 176; // DruidBearSwipe
+constexpr uint32_t DRUID_BEAR_BITE                = 177; // DruidBearBite
+constexpr uint32_t DRUID_BEAR_MAUL                = 178; // DruidBearMaul
+constexpr uint32_t DRUID_BEAR_BASH                = 179; // DruidBearBash
+constexpr uint32_t DRAGON_TAIL                    = 180; // DragonTail
+constexpr uint32_t DRAGON_STOMP                   = 181; // DragonStomp
+constexpr uint32_t DRAGON_SPIT                    = 182; // DragonSpit
+constexpr uint32_t DRAGON_SPIT_HOVER              = 183; // DragonSpitHover
+constexpr uint32_t DRAGON_SPIT_FLY                = 184; // DragonSpitFly
+constexpr uint32_t EMOTE_YES                      = 185; // EmoteYes
+constexpr uint32_t EMOTE_NO                       = 186; // EmoteNo
+constexpr uint32_t JUMP_LAND_RUN                  = 187; // JumpLandRun
+constexpr uint32_t LOOT_HOLD                      = 188; // LootHold
+constexpr uint32_t LOOT_UP                        = 189; // LootUp
+constexpr uint32_t STAND_HIGH                     = 190; // StandHigh
+constexpr uint32_t IMPACT                         = 191; // Impact
+constexpr uint32_t LIFT_OFF                       = 192; // LiftOff
+constexpr uint32_t HOVER                          = 193; // Hover
+constexpr uint32_t SUCCUBUS_ENTICE                = 194; // SuccubusEntice
+constexpr uint32_t EMOTE_TRAIN                    = 195; // EmoteTrain
+constexpr uint32_t EMOTE_DEAD                     = 196; // EmoteDead
+constexpr uint32_t EMOTE_DANCE_ONCE               = 197; // EmoteDanceOnce
+constexpr uint32_t DEFLECT                        = 198; // Deflect
+constexpr uint32_t EMOTE_EAT_NO_SHEATHE           = 199; // EmoteEatNoSheathe
+constexpr uint32_t LAND                           = 200; // Land
+constexpr uint32_t SUBMERGE                       = 201; // Submerge
+constexpr uint32_t SUBMERGED                      = 202; // Submerged
+constexpr uint32_t CANNIBALIZE                    = 203; // Cannibalize
+constexpr uint32_t ARROW_BIRTH                    = 204; // ArrowBirth
+constexpr uint32_t GROUP_ARROW_BIRTH              = 205; // GroupArrowBirth
+constexpr uint32_t CORPSE_ARROW_BIRTH             = 206; // CorpseArrowBirth
+constexpr uint32_t GUIDE_ARROW_BIRTH              = 207; // GuideArrowBirth
+constexpr uint32_t EMOTE_TALK_NO_SHEATHE          = 208; // EmoteTalkNoSheathe
+constexpr uint32_t EMOTE_POINT_NO_SHEATHE         = 209; // EmotePointNoSheathe
+constexpr uint32_t EMOTE_SALUTE_NO_SHEATHE        = 210; // EmoteSaluteNoSheathe
+constexpr uint32_t EMOTE_DANCE_SPECIAL            = 211; // EmoteDanceSpecial
+constexpr uint32_t MUTILATE                       = 212; // Mutilate
+constexpr uint32_t CUSTOM_SPELL_01                = 213; // CustomSpell01
+constexpr uint32_t CUSTOM_SPELL_02                = 214; // CustomSpell02
+constexpr uint32_t CUSTOM_SPELL_03                = 215; // CustomSpell03
+constexpr uint32_t CUSTOM_SPELL_04                = 216; // CustomSpell04
+constexpr uint32_t CUSTOM_SPELL_05                = 217; // CustomSpell05
+constexpr uint32_t CUSTOM_SPELL_06                = 218; // CustomSpell06
+constexpr uint32_t CUSTOM_SPELL_07                = 219; // CustomSpell07
+constexpr uint32_t CUSTOM_SPELL_08                = 220; // CustomSpell08
+constexpr uint32_t CUSTOM_SPELL_09                = 221; // CustomSpell09
+constexpr uint32_t CUSTOM_SPELL_10                = 222; // CustomSpell10
+constexpr uint32_t STEALTH_RUN                    = 223; // StealthRun
+constexpr uint32_t EMERGE                         = 224; // Emerge
+constexpr uint32_t COWER                          = 225; // Cower
+constexpr uint32_t GRAB                           = 226; // Grab
+constexpr uint32_t GRAB_CLOSED                    = 227; // GrabClosed
+constexpr uint32_t GRAB_THROWN                    = 228; // GrabThrown
+constexpr uint32_t FLY_STAND                      = 229; // FlyStand
+constexpr uint32_t FLY_DEATH                      = 230; // FlyDeath
+constexpr uint32_t FLY_SPELL                      = 231; // FlySpell
+constexpr uint32_t FLY_STOP                       = 232; // FlyStop
+constexpr uint32_t FLY_WALK                       = 233; // FlyWalk
+constexpr uint32_t FLY_RUN                        = 234; // FlyRun
+constexpr uint32_t FLY_DEAD                       = 235; // FlyDead
+constexpr uint32_t FLY_RISE                       = 236; // FlyRise
+constexpr uint32_t FLY_STAND_WOUND                = 237; // FlyStandWound
+constexpr uint32_t FLY_COMBAT_WOUND               = 238; // FlyCombatWound
+constexpr uint32_t FLY_COMBAT_CRITICAL            = 239; // FlyCombatCritical
+constexpr uint32_t FLY_SHUFFLE_LEFT               = 240; // FlyShuffleLeft
+constexpr uint32_t FLY_SHUFFLE_RIGHT              = 241; // FlyShuffleRight
+constexpr uint32_t FLY_WALKBACKWARDS              = 242; // FlyWalkbackwards
+constexpr uint32_t FLY_STUN                       = 243; // FlyStun
+constexpr uint32_t FLY_HANDS_CLOSED               = 244; // FlyHandsClosed
+constexpr uint32_t FLY_ATTACK_UNARMED             = 245; // FlyAttackUnarmed
+constexpr uint32_t FLY_ATTACK_1H                  = 246; // FlyAttack1H
+constexpr uint32_t FLY_ATTACK_2H                  = 247; // FlyAttack2H
+constexpr uint32_t FLY_ATTACK_2HL                 = 248; // FlyAttack2HL
+constexpr uint32_t FLY_PARRY_UNARMED              = 249; // FlyParryUnarmed
+constexpr uint32_t FLY_PARRY_1H                   = 250; // FlyParry1H
+constexpr uint32_t FLY_PARRY_2H                   = 251; // FlyParry2H
+constexpr uint32_t FLY_PARRY_2HL                  = 252; // FlyParry2HL
+constexpr uint32_t FLY_SHIELD_BLOCK               = 253; // FlyShieldBlock
+constexpr uint32_t FLY_READY_UNARMED              = 254; // FlyReadyUnarmed
+constexpr uint32_t FLY_READY_1H                   = 255; // FlyReady1H
+constexpr uint32_t FLY_READY_2H                   = 256; // FlyReady2H
+constexpr uint32_t FLY_READY_2HL                  = 257; // FlyReady2HL
+constexpr uint32_t FLY_READY_BOW                  = 258; // FlyReadyBow
+constexpr uint32_t FLY_DODGE                      = 259; // FlyDodge
+constexpr uint32_t FLY_SPELL_PRECAST              = 260; // FlySpellPrecast
+constexpr uint32_t FLY_SPELL_CAST                 = 261; // FlySpellCast
+constexpr uint32_t FLY_SPELL_CAST_AREA            = 262; // FlySpellCastArea
+constexpr uint32_t FLY_NPC_WELCOME                = 263; // FlyNPCWelcome
+constexpr uint32_t FLY_NPC_GOODBYE                = 264; // FlyNPCGoodbye
+constexpr uint32_t FLY_BLOCK                      = 265; // FlyBlock
+constexpr uint32_t FLY_JUMP_START                 = 266; // FlyJumpStart
+constexpr uint32_t FLY_JUMP                       = 267; // FlyJump
+constexpr uint32_t FLY_JUMP_END                   = 268; // FlyJumpEnd
+constexpr uint32_t FLY_FALL                       = 269; // FlyFall
+constexpr uint32_t FLY_SWIM_IDLE                  = 270; // FlySwimIdle
+constexpr uint32_t FLY_SWIM                       = 271; // FlySwim
+constexpr uint32_t FLY_SWIM_LEFT                  = 272; // FlySwimLeft
+constexpr uint32_t FLY_SWIM_RIGHT                 = 273; // FlySwimRight
+constexpr uint32_t FLY_SWIM_BACKWARDS             = 274; // FlySwimBackwards
+constexpr uint32_t FLY_ATTACK_BOW                 = 275; // FlyAttackBow
+constexpr uint32_t FLY_FIRE_BOW                   = 276; // FlyFireBow
+constexpr uint32_t FLY_READY_RIFLE                = 277; // FlyReadyRifle
+constexpr uint32_t FLY_ATTACK_RIFLE               = 278; // FlyAttackRifle
+constexpr uint32_t FLY_LOOT                       = 279; // FlyLoot
+constexpr uint32_t FLY_READY_SPELL_DIRECTED       = 280; // FlyReadySpellDirected
+constexpr uint32_t FLY_READY_SPELL_OMNI           = 281; // FlyReadySpellOmni
+constexpr uint32_t FLY_SPELL_CAST_DIRECTED        = 282; // FlySpellCastDirected
+constexpr uint32_t FLY_SPELL_CAST_OMNI            = 283; // FlySpellCastOmni
+constexpr uint32_t FLY_BATTLE_ROAR                = 284; // FlyBattleRoar
+constexpr uint32_t FLY_READY_ABILITY              = 285; // FlyReadyAbility
+constexpr uint32_t FLY_SPECIAL_1H                 = 286; // FlySpecial1H
+constexpr uint32_t FLY_SPECIAL_2H                 = 287; // FlySpecial2H
+constexpr uint32_t FLY_SHIELD_BASH                = 288; // FlyShieldBash
+constexpr uint32_t FLY_EMOTE_TALK                 = 289; // FlyEmoteTalk
+constexpr uint32_t FLY_EMOTE_EAT                  = 290; // FlyEmoteEat
+constexpr uint32_t FLY_EMOTE_WORK                 = 291; // FlyEmoteWork
+constexpr uint32_t FLY_EMOTE_USE_STANDING         = 292; // FlyEmoteUseStanding
+constexpr uint32_t FLY_EMOTE_TALK_EXCLAMATION     = 293; // FlyEmoteTalkExclamation
+constexpr uint32_t FLY_EMOTE_TALK_QUESTION        = 294; // FlyEmoteTalkQuestion
+constexpr uint32_t FLY_EMOTE_BOW                  = 295; // FlyEmoteBow
+constexpr uint32_t FLY_EMOTE_WAVE                 = 296; // FlyEmoteWave
+constexpr uint32_t FLY_EMOTE_CHEER                = 297; // FlyEmoteCheer
+constexpr uint32_t FLY_EMOTE_DANCE                = 298; // FlyEmoteDance
+constexpr uint32_t FLY_EMOTE_LAUGH                = 299; // FlyEmoteLaugh
+constexpr uint32_t FLY_EMOTE_SLEEP                = 300; // FlyEmoteSleep
+constexpr uint32_t FLY_EMOTE_SIT_GROUND           = 301; // FlyEmoteSitGround
+constexpr uint32_t FLY_EMOTE_RUDE                 = 302; // FlyEmoteRude
+constexpr uint32_t FLY_EMOTE_ROAR                 = 303; // FlyEmoteRoar
+constexpr uint32_t FLY_EMOTE_KNEEL                = 304; // FlyEmoteKneel
+constexpr uint32_t FLY_EMOTE_KISS                 = 305; // FlyEmoteKiss
+constexpr uint32_t FLY_EMOTE_CRY                  = 306; // FlyEmoteCry
+constexpr uint32_t FLY_EMOTE_CHICKEN              = 307; // FlyEmoteChicken
+constexpr uint32_t FLY_EMOTE_BEG                  = 308; // FlyEmoteBeg
+constexpr uint32_t FLY_EMOTE_APPLAUD              = 309; // FlyEmoteApplaud
+constexpr uint32_t FLY_EMOTE_SHOUT                = 310; // FlyEmoteShout
+constexpr uint32_t FLY_EMOTE_FLEX                 = 311; // FlyEmoteFlex
+constexpr uint32_t FLY_EMOTE_SHY                  = 312; // FlyEmoteShy
+constexpr uint32_t FLY_EMOTE_POINT                = 313; // FlyEmotePoint
+constexpr uint32_t FLY_ATTACK_1H_PIERCE           = 314; // FlyAttack1HPierce
+constexpr uint32_t FLY_ATTACK_2H_LOOSE_PIERCE     = 315; // FlyAttack2HLoosePierce
+constexpr uint32_t FLY_ATTACK_OFF                 = 316; // FlyAttackOff
+constexpr uint32_t FLY_ATTACK_OFF_PIERCE          = 317; // FlyAttackOffPierce
+constexpr uint32_t FLY_SHEATH                     = 318; // FlySheath
+constexpr uint32_t FLY_HIP_SHEATH                 = 319; // FlyHipSheath
+constexpr uint32_t FLY_MOUNT                      = 320; // FlyMount
+constexpr uint32_t FLY_RUN_RIGHT                  = 321; // FlyRunRight
+constexpr uint32_t FLY_RUN_LEFT                   = 322; // FlyRunLeft
+constexpr uint32_t FLY_MOUNT_SPECIAL              = 323; // FlyMountSpecial
+constexpr uint32_t FLY_KICK                       = 324; // FlyKick
+constexpr uint32_t FLY_SIT_GROUND_DOWN            = 325; // FlySitGroundDown
+constexpr uint32_t FLY_SIT_GROUND                 = 326; // FlySitGround
+constexpr uint32_t FLY_SIT_GROUND_UP              = 327; // FlySitGroundUp
+constexpr uint32_t FLY_SLEEP_DOWN                 = 328; // FlySleepDown
+constexpr uint32_t FLY_SLEEP                      = 329; // FlySleep
+constexpr uint32_t FLY_SLEEP_UP                   = 330; // FlySleepUp
+constexpr uint32_t FLY_SIT_CHAIR_LOW              = 331; // FlySitChairLow
+constexpr uint32_t FLY_SIT_CHAIR_MED              = 332; // FlySitChairMed
+constexpr uint32_t FLY_SIT_CHAIR_HIGH             = 333; // FlySitChairHigh
+constexpr uint32_t FLY_LOAD_BOW                   = 334; // FlyLoadBow
+constexpr uint32_t FLY_LOAD_RIFLE                 = 335; // FlyLoadRifle
+constexpr uint32_t FLY_ATTACK_THROWN              = 336; // FlyAttackThrown
+constexpr uint32_t FLY_READY_THROWN               = 337; // FlyReadyThrown
+constexpr uint32_t FLY_HOLD_BOW                   = 338; // FlyHoldBow
+constexpr uint32_t FLY_HOLD_RIFLE                 = 339; // FlyHoldRifle
+constexpr uint32_t FLY_HOLD_THROWN                = 340; // FlyHoldThrown
+constexpr uint32_t FLY_LOAD_THROWN                = 341; // FlyLoadThrown
+constexpr uint32_t FLY_EMOTE_SALUTE               = 342; // FlyEmoteSalute
+constexpr uint32_t FLY_KNEEL_START                = 343; // FlyKneelStart
+constexpr uint32_t FLY_KNEEL_LOOP                 = 344; // FlyKneelLoop
+constexpr uint32_t FLY_KNEEL_END                  = 345; // FlyKneelEnd
+constexpr uint32_t FLY_ATTACK_UNARMED_OFF         = 346; // FlyAttackUnarmedOff
+constexpr uint32_t FLY_SPECIAL_UNARMED            = 347; // FlySpecialUnarmed
+constexpr uint32_t FLY_STEALTH_WALK               = 348; // FlyStealthWalk
+constexpr uint32_t FLY_STEALTH_STAND              = 349; // FlyStealthStand
+constexpr uint32_t FLY_KNOCKDOWN                  = 350; // FlyKnockdown
+constexpr uint32_t FLY_EATING_LOOP                = 351; // FlyEatingLoop
+constexpr uint32_t FLY_USE_STANDING_LOOP          = 352; // FlyUseStandingLoop
+constexpr uint32_t FLY_CHANNEL_CAST_DIRECTED      = 353; // FlyChannelCastDirected
+constexpr uint32_t FLY_CHANNEL_CAST_OMNI          = 354; // FlyChannelCastOmni
+constexpr uint32_t FLY_WHIRLWIND                  = 355; // FlyWhirlwind
+constexpr uint32_t FLY_BIRTH                      = 356; // FlyBirth
+constexpr uint32_t FLY_USE_STANDING_START         = 357; // FlyUseStandingStart
+constexpr uint32_t FLY_USE_STANDING_END           = 358; // FlyUseStandingEnd
+constexpr uint32_t FLY_CREATURE_SPECIAL           = 359; // FlyCreatureSpecial
+constexpr uint32_t FLY_DROWN                      = 360; // FlyDrown
+constexpr uint32_t FLY_DROWNED                    = 361; // FlyDrowned
+constexpr uint32_t FLY_FISHING_CAST               = 362; // FlyFishingCast
+constexpr uint32_t FLY_FISHING_LOOP               = 363; // FlyFishingLoop
+constexpr uint32_t FLY_FLY                        = 364; // FlyFly
+constexpr uint32_t FLY_EMOTE_WORK_NO_SHEATHE      = 365; // FlyEmoteWorkNoSheathe
+constexpr uint32_t FLY_EMOTE_STUN_NO_SHEATHE      = 366; // FlyEmoteStunNoSheathe
+constexpr uint32_t FLY_EMOTE_USE_STANDING_NO_SHEATHE = 367; // FlyEmoteUseStandingNoSheathe
+constexpr uint32_t FLY_SPELL_SLEEP_DOWN           = 368; // FlySpellSleepDown
+constexpr uint32_t FLY_SPELL_KNEEL_START          = 369; // FlySpellKneelStart
+constexpr uint32_t FLY_SPELL_KNEEL_LOOP           = 370; // FlySpellKneelLoop
+constexpr uint32_t FLY_SPELL_KNEEL_END            = 371; // FlySpellKneelEnd
+constexpr uint32_t FLY_SPRINT                     = 372; // FlySprint
+constexpr uint32_t FLY_IN_FLIGHT                  = 373; // FlyInFlight
+constexpr uint32_t FLY_SPAWN                      = 374; // FlySpawn
+constexpr uint32_t FLY_CLOSE                      = 375; // FlyClose
+constexpr uint32_t FLY_CLOSED                     = 376; // FlyClosed
+constexpr uint32_t FLY_OPEN                       = 377; // FlyOpen
+constexpr uint32_t FLY_OPENED                     = 378; // FlyOpened
+constexpr uint32_t FLY_DESTROY                    = 379; // FlyDestroy
+constexpr uint32_t FLY_DESTROYED                  = 380; // FlyDestroyed
+constexpr uint32_t FLY_REBUILD                    = 381; // FlyRebuild
+constexpr uint32_t FLY_CUSTOM_0                   = 382; // FlyCustom0
+constexpr uint32_t FLY_CUSTOM_1                   = 383; // FlyCustom1
+constexpr uint32_t FLY_CUSTOM_2                   = 384; // FlyCustom2
+constexpr uint32_t FLY_CUSTOM_3                   = 385; // FlyCustom3
+constexpr uint32_t FLY_DESPAWN                    = 386; // FlyDespawn
+constexpr uint32_t FLY_HOLD                       = 387; // FlyHold
+constexpr uint32_t FLY_DECAY                      = 388; // FlyDecay
+constexpr uint32_t FLY_BOW_PULL                   = 389; // FlyBowPull
+constexpr uint32_t FLY_BOW_RELEASE                = 390; // FlyBowRelease
+constexpr uint32_t FLY_SHIP_START                 = 391; // FlyShipStart
+constexpr uint32_t FLY_SHIP_MOVING                = 392; // FlyShipMoving
+constexpr uint32_t FLY_SHIP_STOP                  = 393; // FlyShipStop
+constexpr uint32_t FLY_GROUP_ARROW                = 394; // FlyGroupArrow
+constexpr uint32_t FLY_ARROW                      = 395; // FlyArrow
+constexpr uint32_t FLY_CORPSE_ARROW               = 396; // FlyCorpseArrow
+constexpr uint32_t FLY_GUIDE_ARROW                = 397; // FlyGuideArrow
+constexpr uint32_t FLY_SWAY                       = 398; // FlySway
+constexpr uint32_t FLY_DRUID_CAT_POUNCE           = 399; // FlyDruidCatPounce
+constexpr uint32_t FLY_DRUID_CAT_RIP              = 400; // FlyDruidCatRip
+constexpr uint32_t FLY_DRUID_CAT_RAKE             = 401; // FlyDruidCatRake
+constexpr uint32_t FLY_DRUID_CAT_RAVAGE           = 402; // FlyDruidCatRavage
+constexpr uint32_t FLY_DRUID_CAT_CLAW             = 403; // FlyDruidCatClaw
+constexpr uint32_t FLY_DRUID_CAT_COWER            = 404; // FlyDruidCatCower
+constexpr uint32_t FLY_DRUID_BEAR_SWIPE           = 405; // FlyDruidBearSwipe
+constexpr uint32_t FLY_DRUID_BEAR_BITE            = 406; // FlyDruidBearBite
+constexpr uint32_t FLY_DRUID_BEAR_MAUL            = 407; // FlyDruidBearMaul
+constexpr uint32_t FLY_DRUID_BEAR_BASH            = 408; // FlyDruidBearBash
+constexpr uint32_t FLY_DRAGON_TAIL                = 409; // FlyDragonTail
+constexpr uint32_t FLY_DRAGON_STOMP               = 410; // FlyDragonStomp
+constexpr uint32_t FLY_DRAGON_SPIT                = 411; // FlyDragonSpit
+constexpr uint32_t FLY_DRAGON_SPIT_HOVER          = 412; // FlyDragonSpitHover
+constexpr uint32_t FLY_DRAGON_SPIT_FLY            = 413; // FlyDragonSpitFly
+constexpr uint32_t FLY_EMOTE_YES                  = 414; // FlyEmoteYes
+constexpr uint32_t FLY_EMOTE_NO                   = 415; // FlyEmoteNo
+constexpr uint32_t FLY_JUMP_LAND_RUN              = 416; // FlyJumpLandRun
+constexpr uint32_t FLY_LOOT_HOLD                  = 417; // FlyLootHold
+constexpr uint32_t FLY_LOOT_UP                    = 418; // FlyLootUp
+constexpr uint32_t FLY_STAND_HIGH                 = 419; // FlyStandHigh
+constexpr uint32_t FLY_IMPACT                     = 420; // FlyImpact
+constexpr uint32_t FLY_LIFT_OFF                   = 421; // FlyLiftOff
+constexpr uint32_t FLY_HOVER                      = 422; // FlyHover
+constexpr uint32_t FLY_SUCCUBUS_ENTICE            = 423; // FlySuccubusEntice
+constexpr uint32_t FLY_EMOTE_TRAIN                = 424; // FlyEmoteTrain
+constexpr uint32_t FLY_EMOTE_DEAD                 = 425; // FlyEmoteDead
+constexpr uint32_t FLY_EMOTE_DANCE_ONCE           = 426; // FlyEmoteDanceOnce
+constexpr uint32_t FLY_DEFLECT                    = 427; // FlyDeflect
+constexpr uint32_t FLY_EMOTE_EAT_NO_SHEATHE       = 428; // FlyEmoteEatNoSheathe
+constexpr uint32_t FLY_LAND                       = 429; // FlyLand
+constexpr uint32_t FLY_SUBMERGE                   = 430; // FlySubmerge
+constexpr uint32_t FLY_SUBMERGED                  = 431; // FlySubmerged
+constexpr uint32_t FLY_CANNIBALIZE                = 432; // FlyCannibalize
+constexpr uint32_t FLY_ARROW_BIRTH                = 433; // FlyArrowBirth
+constexpr uint32_t FLY_GROUP_ARROW_BIRTH          = 434; // FlyGroupArrowBirth
+constexpr uint32_t FLY_CORPSE_ARROW_BIRTH         = 435; // FlyCorpseArrowBirth
+constexpr uint32_t FLY_GUIDE_ARROW_BIRTH          = 436; // FlyGuideArrowBirth
+constexpr uint32_t FLY_EMOTE_TALK_NO_SHEATHE      = 437; // FlyEmoteTalkNoSheathe
+constexpr uint32_t FLY_EMOTE_POINT_NO_SHEATHE     = 438; // FlyEmotePointNoSheathe
+constexpr uint32_t FLY_EMOTE_SALUTE_NO_SHEATHE    = 439; // FlyEmoteSaluteNoSheathe
+constexpr uint32_t FLY_EMOTE_DANCE_SPECIAL        = 440; // FlyEmoteDanceSpecial
+constexpr uint32_t FLY_MUTILATE                   = 441; // FlyMutilate
+constexpr uint32_t FLY_CUSTOM_SPELL_01            = 442; // FlyCustomSpell01
+constexpr uint32_t FLY_CUSTOM_SPELL_02            = 443; // FlyCustomSpell02
+constexpr uint32_t FLY_CUSTOM_SPELL_03            = 444; // FlyCustomSpell03
+constexpr uint32_t FLY_CUSTOM_SPELL_04            = 445; // FlyCustomSpell04
+constexpr uint32_t FLY_CUSTOM_SPELL_05            = 446; // FlyCustomSpell05
+constexpr uint32_t FLY_CUSTOM_SPELL_06            = 447; // FlyCustomSpell06
+constexpr uint32_t FLY_CUSTOM_SPELL_07            = 448; // FlyCustomSpell07
+constexpr uint32_t FLY_CUSTOM_SPELL_08            = 449; // FlyCustomSpell08
+constexpr uint32_t FLY_CUSTOM_SPELL_09            = 450; // FlyCustomSpell09
+constexpr uint32_t FLY_CUSTOM_SPELL_10            = 451; // FlyCustomSpell10
+constexpr uint32_t FLY_STEALTH_RUN                = 452; // FlyStealthRun
+constexpr uint32_t FLY_EMERGE                     = 453; // FlyEmerge
+constexpr uint32_t FLY_COWER                      = 454; // FlyCower
+constexpr uint32_t FLY_GRAB                       = 455; // FlyGrab
+constexpr uint32_t FLY_GRAB_CLOSED                = 456; // FlyGrabClosed
+constexpr uint32_t FLY_GRAB_THROWN                = 457; // FlyGrabThrown
+constexpr uint32_t TO_FLY                         = 458; // ToFly
+constexpr uint32_t TO_HOVER                       = 459; // ToHover
+constexpr uint32_t TO_GROUND                      = 460; // ToGround
+constexpr uint32_t FLY_TO_FLY                     = 461; // FlyToFly
+constexpr uint32_t FLY_TO_HOVER                   = 462; // FlyToHover
+constexpr uint32_t FLY_TO_GROUND                  = 463; // FlyToGround
+constexpr uint32_t SETTLE                         = 464; // Settle
+constexpr uint32_t FLY_SETTLE                     = 465; // FlySettle
+constexpr uint32_t DEATH_START                    = 466; // DeathStart
+constexpr uint32_t DEATH_LOOP                     = 467; // DeathLoop
+constexpr uint32_t DEATH_END                      = 468; // DeathEnd
+constexpr uint32_t FLY_DEATH_START                = 469; // FlyDeathStart
+constexpr uint32_t FLY_DEATH_LOOP                 = 470; // FlyDeathLoop
+constexpr uint32_t FLY_DEATH_END                  = 471; // FlyDeathEnd
+constexpr uint32_t DEATH_END_HOLD                 = 472; // DeathEndHold
+constexpr uint32_t FLY_DEATH_END_HOLD             = 473; // FlyDeathEndHold
+constexpr uint32_t STRANGULATE                    = 474; // Strangulate
+constexpr uint32_t FLY_STRANGULATE                = 475; // FlyStrangulate
+constexpr uint32_t READY_JOUST                    = 476; // ReadyJoust
+constexpr uint32_t LOAD_JOUST                     = 477; // LoadJoust
+constexpr uint32_t HOLD_JOUST                     = 478; // HoldJoust
+constexpr uint32_t FLY_READY_JOUST                = 479; // FlyReadyJoust
+constexpr uint32_t FLY_LOAD_JOUST                 = 480; // FlyLoadJoust
+constexpr uint32_t FLY_HOLD_JOUST                 = 481; // FlyHoldJoust
+constexpr uint32_t ATTACK_JOUST                   = 482; // AttackJoust
+constexpr uint32_t FLY_ATTACK_JOUST               = 483; // FlyAttackJoust
+constexpr uint32_t RECLINED_MOUNT                 = 484; // ReclinedMount
+constexpr uint32_t FLY_RECLINED_MOUNT             = 485; // FlyReclinedMount
+constexpr uint32_t TO_ALTERED                     = 486; // ToAltered
+constexpr uint32_t FROM_ALTERED                   = 487; // FromAltered
+constexpr uint32_t FLY_TO_ALTERED                 = 488; // FlyToAltered
+constexpr uint32_t FLY_FROM_ALTERED               = 489; // FlyFromAltered
+constexpr uint32_t IN_STOCKS                      = 490; // InStocks
+constexpr uint32_t FLY_IN_STOCKS                  = 491; // FlyInStocks
+constexpr uint32_t VEHICLE_GRAB                   = 492; // VehicleGrab
+constexpr uint32_t VEHICLE_THROW                  = 493; // VehicleThrow
+constexpr uint32_t FLY_VEHICLE_GRAB               = 494; // FlyVehicleGrab
+constexpr uint32_t FLY_VEHICLE_THROW              = 495; // FlyVehicleThrow
+constexpr uint32_t TO_ALTERED_POST_SWAP           = 496; // ToAlteredPostSwap
+constexpr uint32_t FROM_ALTERED_POST_SWAP         = 497; // FromAlteredPostSwap
+constexpr uint32_t FLY_TO_ALTERED_POST_SWAP       = 498; // FlyToAlteredPostSwap
+constexpr uint32_t FLY_FROM_ALTERED_POST_SWAP     = 499; // FlyFromAlteredPostSwap
+constexpr uint32_t RECLINED_MOUNT_PASSENGER       = 500; // ReclinedMountPassenger
+constexpr uint32_t FLY_RECLINED_MOUNT_PASSENGER   = 501; // FlyReclinedMountPassenger
+constexpr uint32_t CARRY_2H                       = 502; // Carry2H
+constexpr uint32_t CARRIED_2H                     = 503; // Carried2H
+constexpr uint32_t FLY_CARRY_2H                   = 504; // FlyCarry2H
+constexpr uint32_t FLY_CARRIED_2H                 = 505; // FlyCarried2H
+
+// Total number of animation IDs (0-505 inclusive)
+constexpr uint32_t ANIM_COUNT                 = 506;
+
+/// Return the symbolic name for an animation ID (e.g. 0 → "STAND").
+/// Returns "UNKNOWN" for IDs outside the known range.
+const char* nameFromId(uint32_t id);
+
+/// Validate animation_ids.hpp constants against AnimationData.dbc.
+/// Logs warnings for IDs present in DBC but missing from constants, and vice versa.
+void validateAgainstDBC(const std::shared_ptr<wowee::pipeline::DBCFile>& dbc);
+
+} // namespace anim
+} // namespace rendering
+} // namespace wowee

@@ -1,0 +1,31 @@
+WoWee
+Copyright (c) 2026 Wowee Contributors
+Original music and audio assets copyright (c) 2026 Kelsi Davis.
+
+This file is a summary. LICENSE is the text that governs.
+
+  Source code
+      MIT, with one additional restriction: the software may not be used, in
+      whole or in part, as the basis for or a component of any commercial
+      video game or other commercial game product. Any such use requires
+      written permission from the copyright holders.
+
+      The restriction was added on 2026-07-21. Code published before that
+      date carried plain MIT terms and those terms stand for what was
+      published under them; everything released since is under the licence
+      above.
+
+  Music and audio composed for this project
+      All rights reserved. Not covered by the MIT terms. Not to be copied,
+      redistributed, modified, sampled or used in any derivative work, and
+      not to be extracted for use outside this project, without written
+      permission from Kelsi Davis.
+
+  World of Warcraft
+      World of Warcraft and all related assets, names and marks are the
+      property of Blizzard Entertainment, Inc. This project ships none of
+      them: it reads the data files of a client the user already owns.
+
+  Third-party code
+      The libraries under extern/ carry their own licences, which travel
+      with them and are unaffected by anything above.

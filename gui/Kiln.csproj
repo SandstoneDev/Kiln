@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Kiln: the Windows front end of kiln.py. It starts kiln.py with the embedded Python of the bundle
+    (python\python.exe next to Kiln.exe) or, in a development tree, with the Python on PATH, and
+    drives it with nothing but the JSON progress stream (kiln.py json mode) and the exit code.
+
+    Build:    dotnet build gui/Kiln.csproj
+    Bundle:   packaging/build_bundle.ps1 (publishes this project self-contained into the zip)
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>Kiln</AssemblyName>
+    <RootNamespace>Kiln</RootNamespace>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <ApplicationVisualStyles>true</ApplicationVisualStyles>
+    <Version>0.1.0</Version>
+    <Product>Kiln</Product>
+    <Company>SandstoneDev</Company>
+    <Copyright>Copyright (c) 2026 SandstoneDev</Copyright>
+    <Description>Kiln - builds the PSP data folder of the port from your own client files</Description>
+    <!-- no build paths inside the published binary (the .pdb path would carry the folder layout) -->
+    <DebugType Condition="'$(Configuration)'=='Release'">none</DebugType>
+    <Deterministic>true</Deterministic>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <PathMap>$(MSBuildProjectDirectory)=.</PathMap>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <InvariantGlobalization>false</InvariantGlobalization>
+    <!-- the icon is drawn by make_icon.ps1 into obj/ before the compile (no binary file in the repository) -->
+    <KilnIcon>$(MSBuildProjectDirectory)\obj\kiln.ico</KilnIcon>
+    <ApplicationIcon>$(KilnIcon)</ApplicationIcon>
+  </PropertyGroup>
+
+  <Target Name="KilnMakeIcon" BeforeTargets="PrepareForBuild" Condition="!Exists('$(KilnIcon)')">
+    <MakeDir Directories="$(MSBuildProjectDirectory)\obj" />
+    <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\make_icon.ps1&quot; -Out &quot;$(KilnIcon)&quot;" />
+  </Target>
+
+</Project>

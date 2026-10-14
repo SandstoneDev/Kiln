@@ -1,0 +1,76 @@
+Kiln
+Copyright (c) 2026 SandstoneDev - MIT License with a non-commercial restriction (see LICENSE).
+
+This file lists the third-party material Kiln uses or redistributes. Each
+component keeps its own license; nothing here changes those terms.
+
+---------------------------------------------------------------------------
+1. Upstream client project (the converters and bakers under bakers/)
+---------------------------------------------------------------------------
+  Project:   WoWee by Kelsi Davis, https://github.com/Kelsidavis/WoWee
+  Copyright: (c) 2026 Wowee Contributors
+  License:   MIT License with an Additional Restriction: the software may not
+             be used, in whole or in part, as the basis for or a component of
+             any commercial video game or other commercial game product
+             without written permission of the copyright holders. Code
+             published before 2026-07-21 carried plain MIT terms.
+  Text:      bakers/LICENSE and bakers/NOTICE (copied verbatim from the
+             upstream project).
+  Note:      the upstream project's own composed music is "all rights
+             reserved" and is NOT used or copied by Kiln (the audio step runs
+             with --no-original).
+
+  The PSP converters and Python bakers are the port's own work on top of that
+  project and are distributed under the same terms as bakers/LICENSE.
+
+---------------------------------------------------------------------------
+2. Libraries compiled into the converters (sources under bakers/extern/)
+---------------------------------------------------------------------------
+  Lua 5.1.5            MIT, Copyright (C) 1994-2012 Lua.org, PUC-Rio
+                       (bakers/extern/lua-5.1.5/COPYRIGHT); used by the
+                       interface-script converter.
+  nlohmann/json        MIT, Copyright (c) 2013-2023 Niels Lohmann
+                       (license header in json.hpp).
+  miniaudio            Public domain (Unlicense) or MIT No Attribution,
+                       David Reid (license text at the end of miniaudio.h);
+                       used by the sound converter to decode and resample.
+  stb_image_write      MIT or public domain, Sean Barrett (license text at
+                       the end of stb_image_write.h).
+
+---------------------------------------------------------------------------
+3. Libraries linked when the converters are built (not in this repository)
+---------------------------------------------------------------------------
+  glm                  MIT (or the Happy Bunny License), G-Truc Creation.
+  meshoptimizer        MIT, Copyright (c) 2016-2024 Arseny Kapoulkine.
+  StormLib             MIT, Copyright (c) Ladislav Zezula; used read-only by
+                       the extractor.
+  zlib                 zlib license, Jean-loup Gailly and Mark Adler.
+  bzip2                BSD-style license, Julian Seward.
+  LibTomCrypt,
+  LibTomMath           public domain / Unlicense, the LibTom projects.
+  GMP                  LGPL-3.0 or GPL-2.0 (pulled in as a dependency of the
+                       crypto library of the toolchain used); a binary bundle
+                       must meet the LGPL terms (source offer, replaceable DLL).
+  GCC runtime          libstdc++ / libgcc: GPL-3.0 with the GCC Runtime
+                       Library Exception; winpthreads: MIT and ZPL.
+
+  A binary bundle of Kiln must ship these license texts next to the DLLs.
+
+---------------------------------------------------------------------------
+4. Art used by the interface baker (bakers/tools/psp/art/)
+---------------------------------------------------------------------------
+  input_prompts/*.png  Button glyphs by Kenney (https://kenney.nl), CC0 1.0
+                       (license file in that folder).
+  selection_circle.png A selection ring rendered from the upstream project's
+                       own shader (upstream license, section 1).
+
+---------------------------------------------------------------------------
+5. Python packages Kiln needs at run time (not in this repository)
+---------------------------------------------------------------------------
+  Pillow               MIT-CMU (HPND) license, Jeffrey A. Clark and contributors.
+  NumPy                BSD-3-Clause, NumPy Developers.
+
+---------------------------------------------------------------------------
+Game content
+---------------------------------------------------------------------------
+  None. See "NOTE ON GAME CONTENT" in LICENSE.

@@ -1,0 +1,63 @@
+MIT License (with a Non-Commercial Restriction)
+
+Copyright (c) 2026 SandstoneDev
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+NON-COMMERCIAL RESTRICTION: Notwithstanding the permissions granted above, the
+Software, in whole or in part, and any work based on it may not be sold,
+licensed for a fee, bundled with or made part of a paid product or service,
+placed behind a paywall, donation tier or paid early access, or distributed
+in exchange for any payment or advertising revenue, without the express
+written permission of the copyright holder. Copying, modifying and
+distributing the Software free of charge under the terms above is permitted.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+
+SCOPE
+
+This license covers the original Kiln code and documents in this repository
+(kiln.py, kilnlib/, tools/, tests/, docs/ and the files at the top level).
+Files under bakers/ are copied from the upstream project the port is built on
+and keep that project's license (bakers/LICENSE, bakers/NOTICE), which has its
+own non-commercial restriction; third-party components keep their own
+licenses (see NOTICE).
+
+---
+
+NOTE ON GAME CONTENT
+
+This license covers only the original source code and binaries of this
+repository. It grants NO rights to any third-party game data, and this
+repository contains none: no game files, no extracted or converted files, no
+game code.
+
+This project is provided for interoperability, preservation, and homebrew use
+with a copy of the source game that you legally own. It ships no game assets;
+it operates solely on client files supplied by the user, on the user's own
+computer. The files it writes are made from the user's own copy for the
+user's own use and must not be distributed by anyone: do not distribute game
+data, files converted from it, or builds or archives that contain them.
+
+All trademarks and copyrighted game content remain the property of their
+respective owners. This project is not affiliated with, authorized, or
+endorsed by any game publisher or by the maker of the PSP.
+
+Rightsholders with concerns are welcome to contact the maintainer at
+sandstonedevpsp@gmail.com before filing a formal notice.
