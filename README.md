@@ -74,6 +74,7 @@ python kiln.py --game <client folder> --out <output folder> --jobs 4
 | `--update` | re-make only the recorded steps whose converters, bakers or input changed (or that are damaged, failed or unknown) |
 | `--repair` | `--check`, then re-make the steps with damaged or missing files and re-copy damaged or missing files of `--target` |
 | `--target DIR` | a copy of the game folder, e.g. `ms0:/PSP/GAME/<APP>/` on the memory stick: only missing or different files are copied into its `data/` |
+| `--server HOST[:PORT]` | the realm list server of a 3.3.5a server you may play on: written as `server=` (and `port=`) into `wowee.cfg` of the game folder (`--target`, else `--out`); the other lines of the file stay. Kiln has no default server |
 | `--force` | re-run steps that are up to date |
 | `--tools DIR` | converter executables (default `bin/`) |
 | `--bakers DIR` | Python bakers and profiles (default `bakers/`) |

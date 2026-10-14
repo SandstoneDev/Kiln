@@ -111,6 +111,7 @@ public sealed class RunOptions
     public int Jobs = Environment.ProcessorCount;
     public bool Force;
     public string? Eboot;
+    public string? Server;                         // kiln.py --server host[:port] (wowee.cfg server=)
     public string App = "WOWEEPSP";
 }
 
@@ -153,6 +154,7 @@ public static class KilnCli
         a.Add("--jobs"); a.Add(Math.Max(1, o.Jobs).ToString());
         if (o.Force && o.Mode == KilnMode.Run) a.Add("--force");
         if (makes && !string.IsNullOrWhiteSpace(o.Eboot) && caps.Has("--eboot")) { a.Add("--eboot"); a.Add(o.Eboot!); }
+        if (!string.IsNullOrWhiteSpace(o.Server) && caps.Has("--server")) { a.Add("--server"); a.Add(o.Server!); }
         if (!string.IsNullOrWhiteSpace(o.App) && o.App != "WOWEEPSP") { a.Add("--app"); a.Add(o.App); }
         if (inst.ToolsOverride is not null) { a.Add("--tools"); a.Add(inst.ToolsOverride); }
         if (inst.DllDir is not null) { a.Add("--dll-dir"); a.Add(inst.DllDir); }

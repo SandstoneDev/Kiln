@@ -69,6 +69,7 @@ public sealed class MainForm : Form
     private readonly CheckBox _lowPrio = new() { Text = "Low priority (the PC stays responsive)", AutoSize = true };
     private readonly CheckBox _force = new() { Text = "Rebuild finished steps", AutoSize = true };
     private readonly TextBox _eboot = new() { Dock = DockStyle.Fill };
+    private readonly TextBox _server = new() { Dock = DockStyle.Fill, PlaceholderText = "host or host:port of a 3.3.5a server you may play on" };
     private readonly TextBox _app = new() { Text = "WOWEEPSP" };
     // ---- bottom ----
     private readonly TabControl _tabs = new() { Dock = DockStyle.Fill };
@@ -391,6 +392,10 @@ public sealed class MainForm : Form
         A(Row(Fill(_eboot), Auto(B("Browse...", (_, _) => PickEboot()))));
         _tips.SetToolTip(_eboot, "Your copy of the port's EBOOT.PBP. Kiln writes a copy with a menu icon and background made from your client's art and puts it on the memory stick.");
 
+        A(L("Server (optional: written to wowee.cfg of the game folder as server=)"));
+        A(_server);
+        _tips.SetToolTip(_server, "The realm list address the game connects to, e.g. 127.0.0.1 or logon.example.org (host:port for another port). Kiln writes only server= / port= into wowee.cfg; the account is typed on the PSP's login screen.");
+
         _app.Width = Px(110);
         A(Flow(Inline("Game folder on the memory stick:  PSP/GAME/"), _app,
                B("Check plan (dry run)", async (_, _) => await RunCheckAsync(verbose: true)),
@@ -489,6 +494,7 @@ public sealed class MainForm : Form
         _lowPrio.Checked = first || s.LowPriority;                      // first start: on
         _force.Checked = false;
         _eboot.Text = s.Eboot;
+        _server.Text = s.Server;
         var drives = Hardware.WorkDrives(Disk.WorkBytes + Disk.DataBytes);
         string best = drives.Count > 0 ? drives[0].Root : Path.GetPathRoot(AppContext.BaseDirectory) ?? "";
         _work.Text = s.Work.Length > 0 ? s.Work : Path.Combine(best, "Kiln-work");
@@ -516,6 +522,7 @@ public sealed class MainForm : Form
         s.Work = _work.Text.Trim();
         s.App = _app.Text.Trim();
         s.Eboot = _eboot.Text.Trim();
+        s.Server = _server.Text.Trim();
         s.Jobs = (int)_jobs.Value;
         s.LowPriority = _lowPrio.Checked;
         s.Advanced = _adv.Visible;
@@ -798,6 +805,7 @@ public sealed class MainForm : Form
             Jobs = (int)_jobs.Value,
             Force = _force.Checked,
             Eboot = File.Exists(_eboot.Text.Trim()) ? _eboot.Text.Trim() : null,
+            Server = _server.Text.Trim().Length > 0 ? _server.Text.Trim() : null,
             App = AppName(),
             Steps = KilnCli.StepTokens(_groups.Controls.OfType<CheckBox>().Where(c => c.Checked).Select(c => (StepGroup)c.Tag!)),
         };
@@ -1501,7 +1509,7 @@ public sealed class MainForm : Form
     private void UpdateButtons()
     {
         bool idle = !_busy && _inst is not null && _ready;
-        foreach (Control c in new Control[] { _game, _folder, _folderBrowse, _stick, _stickRefresh, _toStick, _toFolder, _work, _pcOut, _eboot, _app, _groups, _jobs, _force, _lowPrio })
+        foreach (Control c in new Control[] { _game, _folder, _folderBrowse, _stick, _stickRefresh, _toStick, _toFolder, _work, _pcOut, _eboot, _server, _app, _groups, _jobs, _force, _lowPrio })
             c.Enabled = idle;
         bool locales = _caps.Has("--add-locale");
         _extras.Enabled = _addExtra.Enabled = _removeExtra.Enabled = _defaultLocale.Enabled = idle && locales;

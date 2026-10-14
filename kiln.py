@@ -70,7 +70,7 @@ from concurrent.futures import ThreadPoolExecutor
 KILN_ROOT = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, KILN_ROOT)
 
-from kilnlib import KILN_VERSION, blp, check as CK, client as clientmod, locales as L, steps as S, winrt  # noqa: E402
+from kilnlib import KILN_VERSION, blp, check as CK, client as clientmod, gamecfg, locales as L, steps as S, winrt  # noqa: E402
 from kilnlib.manifest import Manifest  # noqa: E402
 from kilnlib.pipeline import (Ctx, Heartbeat, build_steps, extract, extract_map_wdts, map_groups_wanted,  # noqa: E402
                               ExtractRecord, FailGate, resolve_map0, run_cmd, run_gated, run_probe, select,
@@ -127,6 +127,8 @@ def parse(argv):
     ap.add_argument("--update", action="store_true")
     ap.add_argument("--repair", action="store_true")
     ap.add_argument("--target", metavar="DIR")
+    ap.add_argument("--server", metavar="HOST[:PORT]",
+                    help="write the realm list server into wowee.cfg of the game folder (--target, else --out)")
     ap.add_argument("--deep", action="store_true")
     a = ap.parse_args(argv)
     if not a.list_steps and not a.out:
@@ -228,6 +230,30 @@ def plan_doc(ctx, chosen, man):
                      "state": state, "outputs": s.outputs,
                      "last_seconds": (man.step(s.name) or {}).get("seconds") if man else None})
     return rows
+
+
+def write_server(a):
+    """--server: server= (and port=) in wowee.cfg of the game folder - the stick's game folder with --target,
+    else the output folder (copied to the stick with data/). Every other line of the file stays. -> 0 or 2"""
+    try:
+        host, port = gamecfg.parse_server(a.server)
+    except ValueError as e:
+        return fail(a, str(e))
+    cfg = os.path.join(CK.target_root(a.target) if a.target else a.out, "wowee.cfg")
+    if a.dry_run:
+        msg = "wowee.cfg: would set server=%s%s in %s" % (host, (" port=%d" % port) if port else "", cfg)
+    else:
+        try:
+            msg = gamecfg.set_server(cfg, host, port)
+        except OSError as e:
+            return fail(a, "cannot write %s: %s" % (cfg, e))
+    if a.json:
+        import json
+        print(json.dumps({"event": "server", "host": host, "port": port, "cfg": cfg, "message": msg},
+                         ensure_ascii=False), flush=True)
+    else:
+        print(msg)
+    return 0
 
 
 def fail(a, msg, **fields):
@@ -338,6 +364,11 @@ def main(argv):
             if p and inside(p, g):
                 return fail(a, "%s must be outside the client folder %s: Kiln never writes into your client."
                             % (what, g))
+
+    if a.server:
+        rc = write_server(a)
+        if rc:
+            return rc
 
     later = None          # --add-locale / --remove-locale on an earlier output without --game: the new locales
     try:

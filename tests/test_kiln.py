@@ -250,6 +250,24 @@ class ClientTest(unittest.TestCase):
         self.assertIn("does not and cannot verify", " ".join(client.__doc__.split()))
 
 
+class GameCfgTest(unittest.TestCase):
+    def test_server_line_written_and_other_lines_kept(self):
+        from kilnlib import gamecfg
+        with tempfile.TemporaryDirectory() as d:
+            p = os.path.join(d, "wowee.cfg")
+            gamecfg.set_server(p, "logon.example.org", None)
+            self.assertIn("server=logon.example.org", open(p, encoding="utf-8").read())
+            with open(p, "w", encoding="utf-8") as f:
+                f.write("# mine\nserver=1.2.3.4\nlocale=ruRU\nserver=dup\n")
+            gamecfg.set_server(p, "example.org", 3725)
+            lines = open(p, encoding="utf-8").read().splitlines()
+            self.assertEqual(lines, ["# mine", "server=example.org", "locale=ruRU", "port=3725"])
+        self.assertEqual(gamecfg.parse_server("host:3724"), ("host", 3724))
+        for bad in ("a.b:99999", "bad host", "x:y"):
+            with self.assertRaises(ValueError):
+                gamecfg.parse_server(bad)
+
+
 class StepsTest(unittest.TestCase):
     def test_names_unique_and_outputs_in_data(self):
         st = S.static_steps(os.path.join(ROOT, "no-bakers-here"))

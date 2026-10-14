@@ -53,6 +53,7 @@ public static class Program
                 case "--work": o.Work = Next(); break;
                 case "--add-locale": o.AddLocales.Add(Next()); break;
                 case "--default-locale": o.DefaultLocale = Next(); break;
+                case "--server": o.Server = Next(); break;
                 case "--steps": o.Steps = Next().Split(',', StringSplitOptions.RemoveEmptyEntries).ToList(); break;
                 case "--jobs": o.Jobs = int.Parse(Next()); break;
                 default: throw new ArgumentException("unknown option " + a[i]);

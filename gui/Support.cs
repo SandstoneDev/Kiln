@@ -131,6 +131,7 @@ public sealed class Settings
     public string Work { get; set; } = "";
     public string App { get; set; } = "WOWEEPSP";
     public string Eboot { get; set; } = "";
+    public string Server { get; set; } = "";
     public int Jobs { get; set; }
     public List<string> Groups { get; set; } = new();
     public bool LowPriority { get; set; }
