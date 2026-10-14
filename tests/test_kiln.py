@@ -258,7 +258,7 @@ class GameCfgTest(unittest.TestCase):
             gamecfg.set_server(p, "logon.example.org", None)
             self.assertIn("server=logon.example.org", open(p, encoding="utf-8").read())
             with open(p, "w", encoding="utf-8") as f:
-                f.write("# mine\nserver=1.2.3.4\nlocale=ruRU\nserver=dup\n")
+                f.write("# mine\nserver=old.example\nlocale=ruRU\nserver=dup\n")
             gamecfg.set_server(p, "example.org", 3725)
             lines = open(p, encoding="utf-8").read().splitlines()
             self.assertEqual(lines, ["# mine", "server=example.org", "locale=ruRU", "port=3725"])
