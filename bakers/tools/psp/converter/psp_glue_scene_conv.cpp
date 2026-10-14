@@ -23,8 +23,8 @@
 // face culling, CharacterPreview::loadRacialBackdrop (attachment 0 = where the
 // character stands, camera 0). Upstream does not draw these scenes through
 // their own camera, lights or fog; those follow the client (GlueParent.lua
-// SetLighting) and the M2 format (wowdev): vertical FoV = 0.6 x the camera's
-// (the world camera's rule, TerrainCamera::fovyDeg), spherical
+// SetLighting) and the M2 format (wowdev.wiki M2, Cameras): the stored FoV is
+// diagonal, vertical = diagonal / sqrt(1 + aspect^2) on the 480 x 272 screen, spherical
 // billboard bones, texture-coordinate combos, M2 point lights, blend modes.
 // Not drawn: particles and ribbons (the PSP draws none either).
 //
@@ -546,9 +546,9 @@ bool renderScene(const Options& o, const SceneDef& def, FILE* meta) {
     Camera cam;
     cam.eye = mc->positionBase;
     cam.target = mc->targetBase;
-    // PSP: vertical FoV = 0.6 x the M2 camera's FoV (the client's camera rule, as TerrainCamera::fovyDeg: 0.6 x FoV
-    // vertically, the width follows the screen).
-    cam.fovy = mc->fov * 0.6f;
+    // The M2 camera's FoV is diagonal (wowdev.wiki M2, "Camera field of view"): vertical = dfov / sqrt(1 + aspect^2),
+    // aspect of the rect the picture is shown on - the PSP screen, 480 x 272 (0.49 x dfov).
+    cam.fovy = mc->fov / std::sqrt(1.0f + cam.aspect * cam.aspect);
     cam.nearZ = mc->nearClip > 0.01f ? mc->nearClip : 0.1f;
     cam.farZ = mc->farClip > cam.nearZ ? mc->farClip : 1000.0f;
     cam.view = glm::lookAt(cam.eye, cam.target, glm::vec3(0.0f, 0.0f, 1.0f));

@@ -682,8 +682,9 @@ inline bool bigWmoRoute(const std::string& routePath, const std::string& outDir,
         }
     }
     std::filesystem::create_directories(outDir);
+    // The world camera's projection (ge::kWorldFovYDeg, the PSP's 480 x 272).
     const float aspect = 480.0f / 272.0f;
-    const glm::mat4 proj = glm::perspective(glm::radians(54.0f), aspect, 1.0f, lod.viewDistance);
+    const glm::mat4 proj = glm::perspective(glm::radians(bw::ge::kWorldFovYDeg), aspect, 1.0f, lod.viewDistance);
     bw::PortalVisibility vis;
     RouteRaster ref, cul;
     ref.farZ = cul.farZ = lod.viewDistance;
@@ -796,7 +797,8 @@ inline bool bigWmoRoute(const std::string& routePath, const std::string& outDir,
                 const glm::vec3 cc = (lo + hi) * 0.5f;
                 const float rr = glm::length(hi - lo) * 0.5f;
                 const glm::vec4 cv = viewM * glm::vec4(cc, 1.0f);
-                const bool safe = bw::wmoSphereSafe(cv.x, cv.y, -cv.z, rr, 1.0f, bw::wmoFocalPx(54.0f));
+                const bool safe =
+                    bw::wmoSphereSafe(cv.x, cv.y, -cv.z, rr, 1.0f, bw::wmoFocalPx(bw::ge::kWorldFovYDeg));
                 const bool useNear = !safe && t.chunkNear[c].size;
                 if (!safe && !t.chunkNear[c].size && t.chunks[c].triangles) ++unsafeNoNear;
                 const bool useLod = !useNear && safe && d > lod.lodDistance && t.chunkLod[c].size;

@@ -589,7 +589,7 @@
    "why": "dependency of the converters"
   },
   "include/rendering/psp/psp_ge_limits.hpp": {
-   "sha256": "c834501c3099c5e46c93ed7b204e42ee0f84c945e8b3cb6ff0952f133c542fea",
+   "sha256": "3daebe01d0098d26932476b8726134deaf6057719437fffbb37fd2431ceb58b5",
    "why": "dependency of the converters"
   },
   "include/rendering/psp/psp_impostor_math.hpp": {
@@ -597,7 +597,7 @@
    "why": "dependency of the converters"
   },
   "include/rendering/psp/psp_item_format.hpp": {
-   "sha256": "9cf1f3bac27d06305438665cc9867979453b3169bfadb7c07d8ce11ee3c00704",
+   "sha256": "b9444a5db1a5b46c39eecfe1a42976a7012d806da0df3ce320981f4e8124a714",
    "why": "dependency of the converters"
   },
   "include/rendering/psp/psp_item_npc_race.hpp": {
@@ -621,7 +621,7 @@
    "why": "dependency of the converters"
   },
   "include/rendering/psp/psp_minimap_format.hpp": {
-   "sha256": "5c849929fcd53b755dcdc0839c16e32db07c8feb3d6cb036298d7263aef90c62",
+   "sha256": "f30c4cc562dc37d81b747b17316e6c99882aac58a4d7c15e5bf0db616eae295a",
    "why": "dependency of the converters"
   },
   "include/rendering/psp/psp_model_format.hpp": {
@@ -657,7 +657,7 @@
    "why": "dependency of the converters"
   },
   "include/rendering/psp/psp_terrain.hpp": {
-   "sha256": "3b9fa35bc2ac533bbbaf9bf2acc0904016742f6217bd6fd27ff1284d144f1b01",
+   "sha256": "18159d0921401f9b5344f32fb5bcce664953c41c9b72f773cf6449facbc04ed2",
    "why": "included by include/rendering/psp/psp_particles_l3.hpp"
   },
   "include/rendering/psp/psp_terrain_pool.hpp": {
@@ -1005,7 +1005,7 @@
    "why": "converter headers"
   },
   "tools/psp/converter/bigwmo_tools.hpp": {
-   "sha256": "09f1a5be2b4a4b71e9fe96cdd0e16abcb003c1feb8ce90f5aff28099fc70de70",
+   "sha256": "e1c0100e3d444f7bf05bea6c27487b185262bfb0a383a6473e525e1dc7981241",
    "why": "converter headers"
   },
   "tools/psp/converter/conv_common.hpp": {
@@ -1181,7 +1181,7 @@
    "why": "converter sources"
   },
   "tools/psp/converter/psp_glue_scene_conv.cpp": {
-   "sha256": "2833a78a8d156397f9fe7c29288f66d8af92f283f9c13471ac2ebe6d54847a2f",
+   "sha256": "e5f5fab14525f6ef5219ffb327241bc470b6f01a1596aaa2b3d7888da2ad2285",
    "why": "converter sources"
   },
   "tools/psp/converter/psp_item_conv.cpp": {
@@ -1261,5 +1261,5 @@
    "why": "texture packer used by the Python bakers"
   }
  },
- "source_commit": "615a302a03343382b8a3b3a547cf377c08ca2a7c"
+ "source_commit": "3f97f46bbd8631372dd64092818330078caaf2f7"
 }

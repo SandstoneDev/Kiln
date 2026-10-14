@@ -356,12 +356,13 @@ inline uint16_t enchantVisualFind(const void* table, uint32_t enchant) {
     return (lo < h.enchantCount && recs[lo].enchant == enchant) ? recs[lo].visual : 0;
 }
 
-// PLAYER_VISIBLE_ITEM_n_ENCHANTMENT: P = low 16 bits (permanent), T = high 16 bits (temporary); the permanent
-// enchantment's visual wins (weapon_glow.md 3).
+// PLAYER_VISIBLE_ITEM_n_ENCHANTMENT: P = low 16 bits (permanent), T = high 16 bits (temporary). Which one shows:
+// upstream AppearanceComposer::applyEnchantVisuals - a temporary enchantment (a sharpening stone, an oil) masks the
+// permanent one, so with T set its visual is the glow (none when T has no visual), else P's.
 inline uint16_t visibleEnchantVisual(const void* table, uint32_t enchantField) {
-    const uint16_t permanent = enchantVisualFind(table, enchantField & 0xFFFFu);
-    if (permanent != 0) return permanent;
-    return enchantVisualFind(table, enchantField >> 16);
+    const uint32_t temporary = enchantField >> 16;
+    if (temporary != 0) return enchantVisualFind(table, temporary);
+    return enchantVisualFind(table, enchantField & 0xFFFFu);
 }
 
 // ---------------------------------------------------------------------------

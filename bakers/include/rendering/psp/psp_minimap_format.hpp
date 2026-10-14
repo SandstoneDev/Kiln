@@ -1,6 +1,7 @@
 // psp_minimap_format.hpp - minimap / world map / indoor (WMO) minimap / dungeon map records and the minimap math.
 //
-// Clean-room implementation of specs/world/minimap_format.md (v2). Shared by the PC minimap converter and the
+// Clean-room implementation of specs/world/minimap_format.md (v2), except kIndoorZoomYards (2.1) and
+// wmoMinimapWalk (3.4), which follow the port's own rules described at them. Shared by the PC minimap converter and the
 // EBOOT. Plain little-endian PODs with asserted sizes; namespace wowee::rendering::psp. Depends only on the
 // upstream minimap view type (ui::MinimapView) and the standard headers below; no platform headers.
 #pragma once
@@ -27,7 +28,9 @@ constexpr float kMinimapTileYards = 533.33333f;
 constexpr uint32_t kWmoMinimapVersion = 1;
 constexpr float kWmoMinimapYardsPerPixel = 0.5f;  // an indoor tile texture pixel covers 0.5 yard
 constexpr float kWmoMinimapTileYards = 128.0f;  // indoor tile spacing (256 px)
-constexpr float kIndoorZoomYards[6] = {150.0f, 120.0f, 90.0f, 60.0f, 40.0f, 25.0f};  // indoor zoom levels 0..5
+// Indoor zoom levels 0..5, yards across the minimap (the port's own scale): 32-yard steps from 192 (about the
+// closest outdoor view, 100 yd radius) down to 32.
+constexpr float kIndoorZoomYards[6] = {192.0f, 160.0f, 128.0f, 96.0f, 64.0f, 32.0f};
 constexpr uint32_t kDungeonMapVersion = 1;
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -375,49 +378,48 @@ inline void wmoMinimapApply(const float m[12], float x, float y, float z, float&
 // ---------------------------------------------------------------------------------------------------------------
 // 3.4 Indoor group walk
 // ---------------------------------------------------------------------------------------------------------------
+// Which groups of one placed WMO show indoor minimap tiles: breadth first through the portals from the player's
+// group `start`, as upstream WMORenderer::getVisibleGroupsViaPortals walks the portal graph from the camera's group.
+// A portal is passed when its box meets the view box [bmin, bmax] (closed intervals on all three axes; upstream
+// tests the portal against the camera frustum instead). Port's own rule: only interior groups (flag 0x2000, the
+// indoor test's flag) are entered; groups more than maxDepth (clamped to 0..254) portals away are not reached.
+// `seen` (the instance's groupCount bytes, zero on entry) gets 1 for every group reached, the start included.
+// Returns the number of groups reached (0 for a start outside the instance). No allocation: during the walk
+// seen[i] holds 1 + the group's distance in portals, and is put back to 1 at the end.
 inline int wmoMinimapWalk(const WmoMinimapView& v, const WmoMinimapInstance& in, uint32_t start, const float bmin[3],
-                          const float bmax[3], uint8_t* seen, int maxDepth = 32) {
+                          const float bmax[3], uint8_t* seen, int maxDepth = 254) {
     if (!v.h || !v.groups || !seen) return 0;
     const uint32_t first = in.firstGroup;
     const uint32_t count = in.groupCount;
-    if (start < first || start >= first + count) return 0;  // not specified: a start outside the instance does nothing
-    auto closed = [&](uint32_t g) {
-        const uint32_t id = v.groups[g].wmoGroupId;
-        return id == 23015u || id == 23016u;
-    };
-    const uint32_t wanted = v.groups[start].flags & 0x40u;
-
-    struct Entry {
-        uint32_t group;
-        int depth;
-    };
-    constexpr int kMaxPending = 64;
-    Entry stack[kMaxPending];
-    int top = 0;
+    if (start < first || start >= first + count) return 0;
+    maxDepth = std::clamp(maxDepth, 0, 254);
     seen[start - first] = 1;
-    stack[top++] = Entry{start, 0};
-    int processed = 0;
-    while (top > 0) {
-        const Entry e = stack[--top];
-        ++processed;
-        if (e.depth >= maxDepth || closed(e.group)) continue;
-        const WmoMinimapGroup& G = v.groups[e.group];
-        for (uint32_t i = 0; i < G.portalCount; ++i) {
-            const WmoMinimapPortal& P = v.portals[G.firstPortal + i];
-            const uint32_t o = P.group;
-            if (o < first || o >= first + count) continue;
-            if (seen[o - first]) continue;
-            if ((v.groups[o].flags & 0x48u) != wanted) continue;
-            if (closed(o)) continue;
-            bool overlap = true;
-            for (int a = 0; a < 3; ++a)
-                if (P.bmax[a] < bmin[a] || P.bmin[a] > bmax[a]) overlap = false;
-            if (!overlap) continue;
-            seen[o - first] = 1;
-            if (top < kMaxPending) stack[top++] = Entry{o, e.depth + 1};
+    int reached = 1;
+    for (int level = 1; level <= maxDepth; ++level) {
+        bool grew = false;
+        for (uint32_t i = 0; i < count; ++i) {
+            if (seen[i] != level) continue;
+            const WmoMinimapGroup& G = v.groups[first + i];
+            for (uint32_t k = 0; k < G.portalCount; ++k) {
+                const WmoMinimapPortal& P = v.portals[G.firstPortal + k];
+                const uint32_t o = P.group;
+                if (o < first || o >= first + count) continue;
+                if (seen[o - first]) continue;
+                if (!(v.groups[o].flags & 0x2000u)) continue;
+                bool overlap = true;
+                for (int a = 0; a < 3; ++a)
+                    if (P.bmax[a] < bmin[a] || P.bmin[a] > bmax[a]) overlap = false;
+                if (!overlap) continue;
+                seen[o - first] = static_cast<uint8_t>(level + 1);
+                ++reached;
+                grew = true;
+            }
         }
+        if (!grew) break;
     }
-    return processed;
+    for (uint32_t i = 0; i < count; ++i)
+        if (seen[i]) seen[i] = 1;
+    return reached;
 }
 
 // ---------------------------------------------------------------------------------------------------------------

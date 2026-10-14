@@ -29,6 +29,7 @@
 
 #include "platform/psp/psp_pak.hpp"
 #include "platform/psp/psp_texture.hpp"
+#include "rendering/psp/psp_ge_limits.hpp"        // ge::kWorldFovYDeg
 #include "rendering/psp/psp_terrain_pool.hpp"    // the terrain's fixed pool (no newlib churn)
 #include "rendering/psp/psp_terrain_window.hpp"  // the chunk-texture window
 
@@ -53,7 +54,7 @@ struct TerrainCamera {
     // Vertical field of view of the world camera in degrees; the horizontal one
     // follows the aspect (84 deg at 480 x 272). The value is under clean-room
     // review (round 2: camera_fov). Was 60 (cfg "fov").
-    float fovyDeg = 54.0f;
+    float fovyDeg = ge::kWorldFovYDeg;
     // 1.0: the GE drops a whole triangle when a vertex projects past its
     // 4096 px space, and a vertex clipped at the near plane lands up to
     // (edge length / near) screen-widths out; with near 0.6 the building

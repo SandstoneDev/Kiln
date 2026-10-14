@@ -22,8 +22,13 @@ constexpr float kCentre = 2048.0f;      // sceGuViewport(2048, 2048, ...)
 constexpr float kReach = 2047.0f;       // |Xs - 2048|, |Ys - 2048| that stay inside [0, 4096) (Q12.4 margin)
 constexpr float kMaxSpanY = 2730.625f;  // Hardware-Restriction p16: 0xAAAA in 12.4
 
+// The world camera's default vertical field of view in degrees (TerrainCamera::fovyDeg, cfg fov 90); the horizontal
+// one follows the aspect. One constant for the PSP renderers and the PC tools that project like them. The value
+// awaits observation (round 2: camera_fov).
+constexpr float kWorldFovYDeg = 54.0f;
+
 // Focal length in pixels: screen pixels per unit of x/z (and y/z) for a vertical field of view over a viewport
-// `heightPx` tall (the world: 272, the client's 0.6 x cameraFov = 54 degrees at cfg fov 90).
+// `heightPx` tall (the world: 272 at kWorldFovYDeg).
 inline float focalPx(float fovyDeg, float heightPx = 272.0f) {
     return heightPx * 0.5f / std::tan(fovyDeg * (3.14159265f / 360.0f));
 }
