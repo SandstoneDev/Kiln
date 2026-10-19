@@ -1,5 +1,7 @@
 # Kiln
 
+**English** | [Русский](README.ru.md)
+
 **Need help? Join the Sandstone_PSP Discord: [discord.gg/wV8x46ZTDu](https://discord.gg/wV8x46ZTDu)**
 
 **Kiln** is a Windows command-line tool that builds the data folder of a PSP homebrew port of an
