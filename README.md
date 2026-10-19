@@ -17,15 +17,14 @@ client folder you point it at and writes a `data/` folder that the port's EBOOT 
 
 ## Quick start (the Kiln window)
 
-You need: Windows 10 or later, your own WoW 3.3.5a (build 12340) PC client, about 30 GB free on a local disk
+You need: Windows 10 or later, your own 3.3.5a (build 12340) PC client, about 30 GB free on a local disk
 (10 GB work folder + 17 GB data) and the port's `WoWeePSP-<version>.zip` from
 [the port's Releases page](https://github.com/SandstoneDev/WoWee-psp-port). A full conversion took about 4 hours
 on a desktop PC; the PC stays usable (tick *Low priority* in *Advanced settings* to be sure).
 
-1. Download `Kiln-<version>-win64.zip` from this repository's Releases page and unpack it anywhere (e.g.
-   `C:\Kiln`). No installation, no Python needed: it is inside.
+1. Download `Kiln-<version>-win64.zip` from this repository's Releases page and unpack it anywhere. No installation, no Python needed: it is inside.
 2. Start `Kiln.exe`.
-3. **1 Your game folder** - *Browse...* to your client folder (the one with `Wow.exe` and `Data`). Kiln checks it
+3. **1 Your game folder** - *Browse...* to your client folder (the one with the game's executable and its `Data` folder). Kiln checks it
    at once: build, languages, and whether it is a private-server download of the same build (that is fine).
 4. **2 Extra languages** - optional: another copy of the client in another language, so the game can switch.
 5. **3 Where to put it**:
