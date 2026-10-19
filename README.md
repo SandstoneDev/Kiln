@@ -13,6 +13,48 @@ client folder you point it at and writes a `data/` folder that the port's EBOOT 
 
 ---
 
+## Quick start (the Kiln window)
+
+You need: Windows 10 or later, your own WoW 3.3.5a (build 12340) PC client, about 30 GB free on a local disk
+(10 GB work folder + 17 GB data) and the port's `WoWeePSP-<version>.zip` from
+[the port's Releases page](https://github.com/SandstoneDev/WoWee-psp-port). A full conversion took about 4 hours
+on a desktop PC; the PC stays usable (tick *Low priority* in *Advanced settings* to be sure).
+
+1. Download `Kiln-<version>-win64.zip` from this repository's Releases page and unpack it anywhere (e.g.
+   `C:\Kiln`). No installation, no Python needed: it is inside.
+2. Start `Kiln.exe`.
+3. **1 Your game folder** - *Browse...* to your client folder (the one with `Wow.exe` and `Data`). Kiln checks it
+   at once: build, languages, and whether it is a private-server download of the same build (that is fine).
+4. **2 Extra languages** - optional: another copy of the client in another language, so the game can switch.
+5. **3 Where to put it**:
+   - **PSP memory stick** - connect the PSP by USB (*Settings > USB Connection*) or use a card reader, press
+     *Refresh* and pick it. Kiln makes the data on the PC and copies it to `PSP/GAME/WOWEEPSP/` at the end. Plug the
+     PSP into its charger and set *Settings > Power Save Settings > Auto Sleep* to *Off*: a sleeping PSP drops the
+     USB connection in the middle of the copy.
+   - **A folder on this PC** - Kiln writes `data\` there; you copy it to the stick yourself.
+6. **Advanced settings** (the defaults are right for a full run):
+   - **Your EBOOT.PBP of the port** - the `EBOOT.PBP` from the port's zip. Kiln writes `xmb\EBOOT.PBP`, a copy with
+     the menu icon and background made from your client's art, and puts it on the stick.
+   - **Server** - your server's realm list address (`logon.example.org`, or `host:port`). Kiln writes it into the
+     game's `wowee.cfg`; the account is typed on the PSP.
+   - Work folder, jobs, what to make, low priority, rebuild.
+7. **4 Make the data** - press **Start**. The *Steps* tab lists every step with its time, the status line the time
+   left. When it ends, the *Summary* tab shows the **total time**, what was made and where to copy it; the same total
+   (with extraction, PNG and steps apart) is the `total time:` line near the end of `logs\kiln.log`.
+8. Copy to the stick if Kiln did not (`data\` to `ms0:/PSP/GAME/WOWEEPSP/data`, plus `EBOOT.PBP`, `sdbg.prx` and
+   `Data/` from the port's zip), set `server=` in `wowee.cfg` if you did not give it to Kiln, and follow the port's
+   README from *First start*.
+
+**Later:** *Update assets* re-makes only what a new Kiln or a new client changed; *Check integrity* compares the PC
+and the stick with Kiln's manifest (missing, cut or changed files); *Repair* re-makes or re-copies only those.
+A run that was cancelled or failed resumes with *Start* - finished steps are kept.
+
+**Messages you may see:** "quality warnings (rc 4)" on characters or creatures - a few models were simplified to
+fit the PSP; the output is complete. "png skipped: ... (an empty file in the client)" - some private-server
+clients ship an empty file next to the real one; it is not used.
+
+---
+
 ## What it does
 
 1. **Identifies the client** by the SHA-256 hash of its executable. Only build 12340 is supported;
