@@ -1282,7 +1282,7 @@ public sealed class MainForm : Form
     // ================================================================================== summary
     private void ShowRunSummary(KilnMode mode, int rc, CardSync.CopyResult? copy, bool copied)
     {
-        double secs = (DateTime.UtcNow - _runStart).TotalSeconds;
+        double secs = (DateTime.UtcNow - _runStart).TotalSeconds;  // the whole run, the memory stick copy included
         var (files, bytes) = Directory.Exists(DataDir()) ? CardSync.Measure(DataDir()) : (0, 0L);
         var lines = new List<string>();
         string title;
@@ -1291,7 +1291,13 @@ public sealed class MainForm : Form
         else if (rc != 0) { title = $"Finished with problems (exit code {rc}). Start again retries what failed; the Log tab says why."; color = Bad; }
         else if (!copied) { title = "The data is made, but copying it to the memory stick failed (see the Log tab)."; color = Bad; }
         else { title = mode == KilnMode.Update ? "Update finished." : "Done."; color = Good; }
-        lines.Add($"Time: {StepList.Human(secs)}.");
+        if (!_cancelled) title += $" Total time: {LongTime(secs)}.";
+        string breakdown = "";
+        if (_lastDone?.Obj("spent") is { } sp)
+            breakdown = $" - extraction {LongTime(sp.Num("extract") ?? 0)}, PNG {LongTime(sp.Num("png") ?? 0)}, steps {LongTime(sp.Num("steps") ?? 0)}" +
+                        (secs - (_lastDone?.Num("seconds") ?? secs) > 30 ? $", the rest (checks, copying to the stick) {LongTime(secs - (_lastDone?.Num("seconds") ?? secs))}" : "");
+        lines.Add($"Total time: {LongTime(secs)} (started {_runStart.ToLocalTime():HH:mm}, finished {DateTime.Now:HH:mm}){breakdown}.");
+        Log($"total time: {LongTime(secs)}");
         if (_lastDone is { } d && d.Bool("verify") != true)
         {
             var failed = d.Strs("failed").ToList();
@@ -1317,6 +1323,15 @@ public sealed class MainForm : Form
         SetSummary(title, color, lines, null);
         SetStatus(title, color);
         if (!_cancelled) _tabs.SelectedIndex = 2;
+    }
+
+    // 13976 s -> "3 h 52 min 56 s" (kiln.py human_time)
+    private static string LongTime(double seconds)
+    {
+        var t = TimeSpan.FromSeconds(Math.Round(Math.Max(0, seconds)));
+        if (t.TotalHours >= 1) return $"{(int)t.TotalHours} h {t.Minutes:00} min {t.Seconds:00} s";
+        if (t.TotalMinutes >= 1) return $"{t.Minutes} min {t.Seconds:00} s";
+        return $"{t.Seconds} s";
     }
 
     private void ShowCheckSummary(int rc)
@@ -1442,7 +1457,8 @@ public sealed class MainForm : Form
             row.Seconds = e.Num("seconds") ?? row.Elapsed;
             int bad = (int)(e.Num("rc") ?? 0) + (int)(e.Num("failed") ?? 0);
             row.State = bad == 0 ? RowState.Done : RowState.Failed;
-            if (phase == "png") row.Note = $"{e.Num("written") ?? 0} written, {e.Num("kept") ?? 0} kept, {e.Num("failed") ?? 0} failed";
+            if (phase == "png") row.Note = $"{e.Num("written") ?? 0} written, {e.Num("kept") ?? 0} kept, {e.Num("failed") ?? 0} failed" +
+                                           ((e.Num("empty") ?? 0) > 0 ? $", {e.Num("empty")} empty in the client (skipped)" : "");
             if (row.Seconds > 0) _eta.Record(phase == "png" ? "png" : "extract:" + e.Str("locale"), row.Seconds);
             _phaseText = "";
         }

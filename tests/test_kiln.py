@@ -76,6 +76,25 @@ class BlpTest(unittest.TestCase):
         with self.assertRaises(blp.BlpError):
             blp.decode(b"NOPE" + bytes(2000))
 
+    def test_empty_file_is_skipped_not_failed(self):
+        # a private-server patch ships a 0-byte INV_Shoulder_94.tga.blp beside the real icon
+        with tempfile.TemporaryDirectory() as d:
+            icons = os.path.join(d, "interface", "icons")
+            os.makedirs(icons)
+            open(os.path.join(icons, "empty.tga.blp"), "wb").close()
+            with open(os.path.join(icons, "real.blp"), "wb") as f:
+                f.write(blp2(2, 0, 0, 4, 4, struct.pack("<HHI", 0xFFFF, 0xFFFF, 0)))
+            notes = []
+            w, k, f, z = blp.png_sidecars(d, ["interface"], log=notes.append)
+            self.assertEqual((w, k, f, z), (1, 0, 0, 1))
+            self.assertTrue(any("empty file in the client" in n for n in notes))
+
+    def test_human_time(self):
+        import kiln
+        self.assertEqual(kiln.human_time(13976), "3 h 52 min 56 s")
+        self.assertEqual(kiln.human_time(125), "2 min 05 s")
+        self.assertEqual(kiln.human_time(9.4), "9 s")
+
 
 def wdbc(rows, fields=66, strings=b"\0"):
     size = fields * 4

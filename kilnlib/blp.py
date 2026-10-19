@@ -198,8 +198,11 @@ def write_png(blp_path: str, png_path: str) -> None:
 def png_sidecars(root: str, subdirs, force=False, jobs=1, log=print):
     """Write <name>.png next to every <name>.blp under root/<subdir> (recursive).
 
-    Returns (written, kept, failed)."""
-    todo, kept = [], 0
+    An empty (0-byte) .blp is skipped with a note, not counted as failed: some private-server patches ship one
+    next to the real file (e.g. INV_Shoulder_94.tga.blp beside inv_shoulder_94.blp); nothing uses it.
+
+    Returns (written, kept, failed, empty)."""
+    todo, kept, empty = [], 0, 0
     for sub in subdirs:
         base = os.path.join(root, sub)
         for dp, _dns, fns in os.walk(base):
@@ -208,6 +211,10 @@ def png_sidecars(root: str, subdirs, force=False, jobs=1, log=print):
                     continue
                 blp = os.path.join(dp, fn)
                 png = blp[:-4] + ".png"
+                if os.path.getsize(blp) == 0:
+                    empty += 1
+                    log("  png skipped: %s (an empty file in the client - not used)" % os.path.relpath(blp, root))
+                    continue
                 if not force and os.path.exists(png) and os.path.getmtime(png) >= os.path.getmtime(blp):
                     kept += 1
                     continue
@@ -226,7 +233,7 @@ def png_sidecars(root: str, subdirs, force=False, jobs=1, log=print):
             if err:
                 failed += 1
                 log("  png failed: %s (%s)" % (os.path.relpath(item[0], root), err))
-    return len(todo) - failed, kept, failed
+    return len(todo) - failed, kept, failed, empty
 
 
 def _convert_one(item):

@@ -449,6 +449,8 @@ def main(argv):
         L.write(ctx.data, cl.locale, cl.secondary, cl.default_locale), cl.locale, ", ".join(cl.secondary) or "none",
         cl.default_locale))
     t0 = time.time()
+    t_started = time.localtime()
+    spent = {"extract": 0.0, "png": 0.0, "steps": 0.0}  # for the total time's breakdown
 
     # 1. extraction (read-only on the archives) of what the pending steps need, per locale
     def pending_of(steps):
@@ -495,6 +497,7 @@ def main(argv):
                 ctx.running.pop("extract:%s" % loc, None)
                 ctx.running_locale.pop("extract:%s" % loc, None)
             ctx.say("extract [%s]: rc %d, %.0f s" % (loc, rc, time.time() - te))
+            spent["extract"] += time.time() - te
             ctx.event("phase", phase="extract", state="end", locale=loc, rc=rc, seconds=round(time.time() - te, 1))
             done_prefixes.setdefault(loc, set()).update(pre)
             if rc == 0:
@@ -527,13 +530,15 @@ def main(argv):
     for tree in trees:
         ctx.say("png: interface art -> PNG side files in %s" % tree)
         ctx.event("phase", phase="png", state="start", tree=tree)
-        ctx.running["png"] = time.time()
+        ctx.running["png"] = tp = time.time()
         try:
-            w, k, f = blp.png_sidecars(tree, S.PNG_SUBDIRS, jobs=ctx.jobs, log=ctx.say)
+            w, k, f, z = blp.png_sidecars(tree, S.PNG_SUBDIRS, jobs=ctx.jobs, log=ctx.say)
         finally:
             ctx.running.pop("png", None)
-        ctx.say("png: %d written, %d up to date, %d failed" % (w, k, f))
-        ctx.event("phase", phase="png", state="end", written=w, kept=k, failed=f)
+        ctx.say("png: %d written, %d up to date, %d failed%s" % (w, k, f, (", %d empty in the client (skipped)" % z)
+                                                                   if z else ""))
+        ctx.event("phase", phase="png", state="end", written=w, kept=k, failed=f, empty=z)
+        spent["png"] += time.time() - tp
 
     # 3. probes: client files the archives' listfiles do not name
     for s in pending:
@@ -545,6 +550,7 @@ def main(argv):
     total = len(chosen)
     results = {}
     gate = FailGate()
+    ts = time.time()
     try:
         if ctx.jobs > 1:
             with ThreadPoolExecutor(max_workers=ctx.jobs) as ex:
@@ -557,6 +563,7 @@ def main(argv):
                 results[s.name] = run_gated(ctx, man, gate, s, i + 1, total, bool(a.mode))
     finally:
         hb.stop.set()
+    spent["steps"] = time.time() - ts
     man.save()
 
     ok = sum(1 for r in results.values() if r == "ok")
@@ -572,22 +579,43 @@ def main(argv):
             only.add(CK.key("data/" + L.FILE_NAME))
         copy = target_copy(ctx, man, only)
     big = [o["path"] for st in man.doc["steps"].values() for o in st.get("outputs", []) if o["size"] >= 4 << 30]
+    seconds = time.time() - t0
     ctx.say("\ndone in %.0f s: %d made, %d up to date, %d failed%s%s" % (
-        time.time() - t0, ok, sk, len(bad) - len(blocked), (" (" + ", ".join(n for n in bad if n not in blocked) + ")")
+        seconds, ok, sk, len(bad) - len(blocked), (" (" + ", ".join(n for n in bad if n not in blocked) + ")")
         if len(bad) > len(blocked) else "", (", %d not started after a failure (%s)" % (len(blocked), ", ".join(blocked)))
         if blocked else ""))
+    ctx.say("total time: %s (started %s, finished %s; extraction %s, PNG %s, steps %s)" % (
+        human_time(seconds), time.strftime("%Y-%m-%d %H:%M", t_started), time.strftime("%H:%M"),
+        human_time(spent["extract"]), human_time(spent["png"]), human_time(spent["steps"])))
     if big:
         ctx.say("warning: files of 4 GB or more do not fit a FAT32 memory stick: %s" % ", ".join(big))
     ctx.say("manifest: %s" % man.path)
     ctx.say("\nNext: copy the folder\n    %s\nto the memory stick as\n    ms0:/PSP/GAME/%s/data\n"
             "next to the port's EBOOT.PBP (distributed separately)." % (ctx.data, a.app))
+    xmb_eboot = os.path.join(ctx.out, "xmb", "EBOOT.PBP")
+    if os.path.isfile(xmb_eboot):
+        ctx.say("Your EBOOT with menu art from your client: %s - copy it as ms0:/PSP/GAME/%s/EBOOT.PBP."
+                % (xmb_eboot, a.app))
     ctx.say("The work folder %s holds files extracted from your client; delete it when you no longer\n"
             "need it (it speeds up a re-run). These files are for your own use - do not share them\n"
             "(see %s)." % (ctx.work, os.path.join(ctx.out, "README_PERSONAL_USE.txt")))
-    ctx.event("done", made=ok, skipped=sk, failed=bad, seconds=round(time.time() - t0, 1), data=ctx.data,
+    ctx.event("done", made=ok, skipped=sk, failed=bad, seconds=round(seconds, 1), data=ctx.data,
+              started=time.strftime("%Y-%m-%dT%H:%M:%S", t_started),
+              spent={k: round(v, 1) for k, v in spent.items()},
               target="ms0:/PSP/GAME/%s/data" % a.app, manifest=man.path, too_big_for_fat32=big, mode=a.mode,
               copy=copy, blocked=blocked)
     return 1 if bad or (copy and copy["failed"]) else 0
+
+
+def human_time(seconds):
+    """3725 -> '1 h 02 min 05 s', 125 -> '2 min 05 s', 9 -> '9 s'."""
+    s = int(round(max(0.0, seconds)))
+    h, m, s = s // 3600, s // 60 % 60, s % 60
+    if h:
+        return "%d h %02d min %02d s" % (h, m, s)
+    if m:
+        return "%d min %02d s" % (m, s)
+    return "%d s" % s
 
 
 def target_copy(ctx, man, only=None):
