@@ -342,6 +342,25 @@ class XmbTest(unittest.TestCase):
         self.assertEqual(version, 0x10000)
         self.assertEqual(back, sec)
 
+    def test_wide_loading_screen_keeps_its_shape(self):
+        # a square texture shown over 16:9: a white square in it is 16:9 wide on screen, not 1:1 (stretched upward)
+        from PIL import Image
+        from kilnlib import xmb
+        src = np.zeros((64, 64, 4), np.uint8)
+        src[16:48, 16:48] = 255
+        old = xmb.find_sources, xmb._image
+        xmb.find_sources = lambda x: (os.path.join(x, "loadscreentestwide.blp"), None)
+        xmb._image = lambda _p: Image.fromarray(src, "RGBA")
+        try:
+            with tempfile.TemporaryDirectory() as d:
+                _icon, pic1 = xmb.make_art(d, d, log=lambda *_: None)
+                img = np.asarray(Image.open(pic1).convert("L")) > 128
+        finally:
+            xmb.find_sources, xmb._image = old
+        ys, xs = np.nonzero(img)
+        ratio = (xs.max() - xs.min() + 1) / (ys.max() - ys.min() + 1)
+        self.assertAlmostEqual(ratio, 16 / 9, delta=0.1)
+
 
 def fake_client(root, name, locales, exe=b"MZ synthetic"):
     """A synthetic client folder: <root>/<name>/game.exe + Data/<xxYY>/locale-<xxYY>.MPQ (empty files)."""

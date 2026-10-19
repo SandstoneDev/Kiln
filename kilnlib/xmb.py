@@ -81,6 +81,12 @@ def make_art(extracted, out_dir, log=print):
     if not bg_path:
         raise RuntimeError("no loading-screen art found (extract dbfilesclient\\ and interface\\glues\\ first)")
     bg = _image(bg_path).convert("RGB")
+    # A loading screen is a square texture (1024 x 1024) the game stretches over the screen: the "wide" one over
+    # 16:9, the other over 4:3. Taken as square, the art came out stretched upward; first to the shape it is shown in.
+    w, h = bg.size
+    if w == h:
+        wide = os.path.basename(bg_path).lower().endswith("wide.blp")
+        bg = bg.resize((w, round(w * (9 / 16 if wide else 3 / 4))), Image.LANCZOS)
     os.makedirs(out_dir, exist_ok=True)
     pic1 = _cover(bg, PIC1_SIZE)
     icon = ImageEnhance.Brightness(_cover(bg, ICON0_SIZE)).enhance(0.45).convert("RGBA")
