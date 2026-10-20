@@ -564,6 +564,8 @@ def main(argv):
     finally:
         hb.stop.set()
     spent["steps"] = time.time() - ts
+    if cl.present and all(r in ("ok", "skipped") for r in results.values()):
+        copy_client_exe(ctx, cl, man)
     man.save()
 
     ok = sum(1 for r in results.values() if r == "ok")
@@ -605,6 +607,25 @@ def main(argv):
               target="ms0:/PSP/GAME/%s/data" % a.app, manifest=man.path, too_big_for_fat32=big, mode=a.mode,
               copy=copy, blocked=blocked)
     return 1 if bad or (copy and copy["failed"]) else 0
+
+
+def copy_client_exe(ctx, cl, man):
+    """data/client/<the client's executable>: the port checks the client's integrity with it and answers the
+    server's anti-cheat (Warden) memory checks from it. Without it a server that runs those checks stops answering
+    the client (no player or creature names on hardware, 10-20). The player's own file, for the player's own use."""
+    src = os.path.join(cl.game_dir, cl.exe)
+    rel = "data/client/" + cl.exe
+    dst = os.path.join(ctx.out, rel.replace("/", os.sep))
+    t0 = time.time()
+    same = (os.path.isfile(dst) and os.path.getsize(dst) == os.path.getsize(src)
+            and clientmod.sha256_file(dst) == cl.sha256)
+    if not same:
+        os.makedirs(os.path.dirname(dst), exist_ok=True)
+        shutil.copyfile(src, dst)
+    man.record("client_exe", status="ok", key=cl.sha256, outputs=[rel], rc=0, seconds=time.time() - t0,
+               note="the client's own executable (integrity check, anti-cheat answers)",
+               identity=ctx.identity({}, cl.locale, py=False, png=False, builtin="x"))
+    ctx.say("client executable: %s -> %s (%s)" % (cl.exe, rel, "up to date" if same else "copied"))
 
 
 def human_time(seconds):

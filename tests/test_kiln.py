@@ -917,7 +917,7 @@ class CheckUpdateTest(unittest.TestCase):
         self.assertEqual(rc, 1)
         self.assertEqual({k for w, k in self.kinds(ev) if w == "target"}, {"missing"})
         rc, ev = self.kiln("--update", "--target", self.card)
-        self.assertEqual((rc, ev[-1]["copy"]["copied"]), (0, 3))           # 2 profile files + locales.txt
+        self.assertEqual((rc, ev[-1]["copy"]["copied"]), (0, 4))  # 2 profile files + locales.txt + client exe
         self.assertTrue(os.path.exists(os.path.join(self.card, "data", "locales.txt")))
         rc, ev = self.kiln("--update", "--target", os.path.join(self.card, "data"))   # data/ given: same folder
         self.assertEqual((rc, ev[-1]["copy"]["copied"], ev[-1]["copy"]["kept"]), (0, 0, 3))

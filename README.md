@@ -76,10 +76,12 @@ clients ship an empty file next to the real one; it is not used.
 5. **Makes menu art** for your copy (`xmb/ICON0.PNG`, `xmb/PIC1.PNG`) from your own client's art; the
    published EBOOT carries neutral art. With `--eboot <your EBOOT.PBP>` Kiln also writes
    `xmb/EBOOT.PBP` with that art packed in.
-6. **Records** what it made in `<out>/data/kiln.manifest.json` (tool version, client build, locales,
+6. **Copies the client's executable** into `data/client/`: the port checks the client with it and answers
+   the anti-cheat checks some servers run (without it such a server stops answering the port).
+7. **Records** what it made in `<out>/data/kiln.manifest.json` (tool version, client build, locales,
    every file's size and SHA-256, the status and duration of every step) and writes
    `<out>/README_PERSONAL_USE.txt`.
-7. **Tells you where to copy it**: `ms0:/PSP/GAME/<APP>/data`, next to the port's `EBOOT.PBP`.
+8. **Tells you where to copy it**: `ms0:/PSP/GAME/<APP>/data`, next to the port's `EBOOT.PBP`.
    The EBOOT is distributed separately and contains no game data.
 
 A second run skips every step whose files are still present and match the manifest (and whose
