@@ -131,7 +131,8 @@ public sealed class Settings
     public string Work { get; set; } = "";
     public string App { get; set; } = "WOWEEPSP";
     public string Eboot { get; set; } = "";
-    public string Server { get; set; } = "";
+    // The owner's choice (10-21): new players get a working server at once; anyone can change or clear it.
+    public string Server { get; set; } = "logon.therawow.com";
     public int Jobs { get; set; }
     public List<string> Groups { get; set; } = new();
     public bool LowPriority { get; set; }

@@ -392,9 +392,9 @@ public sealed class MainForm : Form
         A(Row(Fill(_eboot), Auto(B("Browse...", (_, _) => PickEboot()))));
         _tips.SetToolTip(_eboot, "Your copy of the port's EBOOT.PBP. Kiln writes a copy with a menu icon and background made from your client's art and puts it on the memory stick.");
 
-        A(L("Server (optional: written to wowee.cfg of the game folder as server=)"));
+        A(L("Server (written to wowee.cfg of the game folder as server=; change it to play elsewhere, clear it to skip)"));
         A(_server);
-        _tips.SetToolTip(_server, "The realm list address the game connects to, e.g. 127.0.0.1 or logon.example.org (host:port for another port). Kiln writes only server= / port= into wowee.cfg; the account is typed on the PSP's login screen.");
+        _tips.SetToolTip(_server, "The realm list address the game connects to - logon.therawow.com by default; any other 3.3.5a server's address works (host:port for another port). Kiln writes only server= / port= into wowee.cfg; the account is typed on the PSP's login screen.");
 
         _app.Width = Px(110);
         A(Flow(Inline("Game folder on the memory stick:  PSP/GAME/"), _app,

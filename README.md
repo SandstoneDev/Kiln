@@ -36,8 +36,9 @@ on a desktop PC; the PC stays usable (tick *Low priority* in *Advanced settings*
 6. **Advanced settings** (the defaults are right for a full run):
    - **Your EBOOT.PBP of the port** - the `EBOOT.PBP` from the port's zip. Kiln writes `xmb\EBOOT.PBP`, a copy with
      the menu icon and background made from your client's art, and puts it on the stick.
-   - **Server** - your server's realm list address (`logon.example.org`, or `host:port`). Kiln writes it into the
-     game's `wowee.cfg`; the account is typed on the PSP.
+   - **Server** - pre-filled with `logon.therawow.com`, a public 3.3.5a server, so the game works at once. To play
+     elsewhere, type that server's realm list address (`host` or `host:port`); clear the field to leave `wowee.cfg`
+     alone. Kiln writes it into the game's `wowee.cfg`; the account is typed on the PSP.
    - Work folder, jobs, what to make, low priority, rebuild.
 7. **4 Make the data** - press **Start**. The *Steps* tab lists every step with its time, the status line the time
    left. When it ends, the *Summary* tab shows the **total time**, what was made and where to copy it; the same total
