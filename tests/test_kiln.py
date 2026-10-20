@@ -920,7 +920,7 @@ class CheckUpdateTest(unittest.TestCase):
         self.assertEqual((rc, ev[-1]["copy"]["copied"]), (0, 4))  # 2 profile files + locales.txt + client exe
         self.assertTrue(os.path.exists(os.path.join(self.card, "data", "locales.txt")))
         rc, ev = self.kiln("--update", "--target", os.path.join(self.card, "data"))   # data/ given: same folder
-        self.assertEqual((rc, ev[-1]["copy"]["copied"], ev[-1]["copy"]["kept"]), (0, 0, 3))
+        self.assertEqual((rc, ev[-1]["copy"]["copied"], ev[-1]["copy"]["kept"]), (0, 0, 4))
         self.assertEqual(self.kiln("--check", "--target", self.card)[0], 0)
         self.write(os.path.join(self.card, "data", "expansions", "p1", "opcodes.json"), "{]")     # same size, other bytes
         self.write(os.path.join(self.card, "data", "movies", "intro.pmf"), "x")                  # the player's own: fine
