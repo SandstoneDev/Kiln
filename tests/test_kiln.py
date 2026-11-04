@@ -940,5 +940,14 @@ class CheckUpdateTest(unittest.TestCase):
             kiln.parse(["--game", "g", "--out", "o", "--deep"])
 
 
+
+
+class WaterStepTest(unittest.TestCase):
+    def test_sound_step_includes_all_terrain_maps(self):
+        sound = next(s for s in S.static_steps(os.path.join(ROOT, "bakers")) if s.name == "sounds")
+        self.assertIn("--all-maps", sound.run[0])
+        self.assertNotIn("{map0}", sound.run[0])
+        self.assertIn("world\\maps\\", sound.prefixes)
+
 if __name__ == "__main__":
     unittest.main()

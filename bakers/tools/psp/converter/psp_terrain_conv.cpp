@@ -322,7 +322,7 @@ bool bakeTile(const std::string& root, const std::string& map, int tx, int ty, T
         put<float>(blob, baseX);
         put<float>(blob, baseY);
         put<float>(blob, baseZ);
-        put<uint16_t>(blob, 0);  // holes (not used yet)
+        put<uint16_t>(blob, cm.vertices.empty() ? 0xFFFFu : terrain.chunks[i].holes);  // preserve cave/city entrances
         put<uint16_t>(blob, 0);
         for (int k = 0; k < 81; ++k) {
             const float h = std::clamp((grid[k] - baseZ) * 32.0f, -32768.0f, 32767.0f);

@@ -165,6 +165,8 @@ def walk(root, tops):
 def target_files(ctx, man):
     """What belongs on the target: every recorded output under data/ + data/locales.txt. -> {key: (rel, size, sha)}"""
     out = {k: v[:3] for k, v in recorded_files(man).items() if v[0].startswith("data/")}
+    for _key,row in recorded_files(man).items():
+        if row[0].lower()=="xmb/eboot.pbp": out[key("EBOOT.PBP")]=("EBOOT.PBP",row[1],row[2])
     lt = os.path.join(ctx.data, L.FILE_NAME)
     if os.path.exists(lt):
         out[key("data/" + L.FILE_NAME)] = ("data/" + L.FILE_NAME, os.path.getsize(lt), sha256_file(lt))
@@ -246,7 +248,7 @@ def sync_target(ctx, man, target, rep, full=False, only=None):
             st = os.stat(dst)
             record[rel] = {"size": size, "sha256": sha, "mtime_ns": st.st_mtime_ns}
             continue
-        src = os.path.join(ctx.out, rel)
+        src = os.path.join(ctx.out,"xmb/EBOOT.PBP" if rel=="EBOOT.PBP" else rel)
         tmp = dst + ".kiln.tmp"
         try:
             os.makedirs(os.path.dirname(dst), exist_ok=True)

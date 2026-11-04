@@ -104,6 +104,7 @@ def parse(argv):
     ap.add_argument("--out", help="output folder (gets data/, xmb/, logs/, work/ and the personal-use note)")
     ap.add_argument("--steps", default="default")
     ap.add_argument("--skip", default="")
+    ap.add_argument("--compact", action="store_true", help="smaller model textures and animation data; preserves selected maps")
     ap.add_argument("--jobs", type=int, default=1)
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--verify", action="store_true")

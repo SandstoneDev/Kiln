@@ -6,6 +6,7 @@
 // and, while kiln.py has no --target, copies the data to the memory stick itself (CardSync).
 using System.Diagnostics;
 using System.Text.Json;
+using System.Security.Cryptography;
 
 namespace Kiln;
 
@@ -67,6 +68,7 @@ public sealed class MainForm : Form
     private readonly FlowLayoutPanel _groups = new() { AutoSize = true, WrapContents = true, Dock = DockStyle.Fill, Margin = new Padding(0) };
     private readonly NumericUpDown _jobs = new() { Minimum = 1, Maximum = 64, AutoSize = true };
     private readonly CheckBox _lowPrio = new() { Text = "Low priority (the PC stays responsive)", AutoSize = true };
+    private readonly CheckBox _compact = new() { Text = "Smaller data (64px model textures / 20 Hz animations)", AutoSize = true };
     private readonly CheckBox _force = new() { Text = "Rebuild finished steps", AutoSize = true };
     private readonly TextBox _eboot = new() { Dock = DockStyle.Fill };
     private readonly TextBox _server = new() { Dock = DockStyle.Fill, PlaceholderText = "host or host:port of a 3.3.5a server you may play on" };
@@ -385,7 +387,7 @@ public sealed class MainForm : Form
         A(_groups);
 
         A(L("Speed"));
-        A(Flow(Inline("Jobs:"), _jobs, Inline($"(default {Hardware.DefaultJobs()}: one per CPU core, one thread left free)", help: true), _lowPrio, _force));
+        A(Flow(Inline("Jobs:"), _jobs, Inline($"(default {Hardware.DefaultJobs()}: one per CPU core, one thread left free)", help: true), _lowPrio, _force, _compact));
         _tips.SetToolTip(_jobs, "Steps that run at the same time (and workers for the converters that take a count).");
 
         A(L("Your EBOOT.PBP of the port (optional: Kiln makes a copy with menu art from your client)"));
@@ -491,6 +493,7 @@ public sealed class MainForm : Form
         bool first = s.Jobs <= 0;
         _jobs.Value = Math.Clamp(first ? Hardware.DefaultJobs() : s.Jobs, 1, 64);
         _app.Text = string.IsNullOrWhiteSpace(s.App) ? "WOWEEPSP" : s.App;
+        _compact.Checked = s.Compact;
         _lowPrio.Checked = first || s.LowPriority;                      // first start: on
         _force.Checked = false;
         _eboot.Text = s.Eboot;
@@ -524,6 +527,7 @@ public sealed class MainForm : Form
         s.Eboot = _eboot.Text.Trim();
         s.Server = _server.Text.Trim();
         s.Jobs = (int)_jobs.Value;
+        s.Compact = _compact.Checked;
         s.LowPriority = _lowPrio.Checked;
         s.Advanced = _adv.Visible;
         s.Groups = _groups.Controls.OfType<CheckBox>().Where(c => c.Checked).Select(c => ((StepGroup)c.Tag!).Id).ToList();
@@ -804,6 +808,7 @@ public sealed class MainForm : Form
             AddLocales = ExtraDirs(),
             Jobs = (int)_jobs.Value,
             Force = _force.Checked,
+            Compact = _compact.Checked,
             Eboot = File.Exists(_eboot.Text.Trim()) ? _eboot.Text.Trim() : null,
             Server = _server.Text.Trim().Length > 0 ? _server.Text.Trim() : null,
             App = AppName(),
@@ -1030,8 +1035,7 @@ public sealed class MainForm : Form
                 // the EBOOT with the menu art from this client, when Kiln made one
                 string eb = Path.Combine(pcOut, "xmb", "EBOOT.PBP");
                 string ebDst = Path.Combine(gameDir, "EBOOT.PBP");
-                if (File.Exists(eb) && (!File.Exists(ebDst) || new FileInfo(ebDst).Length != new FileInfo(eb).Length ||
-                                        File.GetLastWriteTimeUtc(ebDst) < File.GetLastWriteTimeUtc(eb).AddSeconds(-2)))
+                if (File.Exists(eb) && !SameEboot(eb,ebDst))
                 {
                     File.Copy(eb, ebDst, true);
                     File.SetLastWriteTimeUtc(ebDst, File.GetLastWriteTimeUtc(eb));
@@ -1093,6 +1097,14 @@ public sealed class MainForm : Form
 
     /// The EBOOT.PBP with menu art from this client (xmb/ of the output), copied next to data/ on the stick
     /// when it is new or changed. kiln.py's --target copies data/ only.
+    private static bool SameEboot(string source,string target)
+    {
+        if (!File.Exists(target) || new FileInfo(source).Length != new FileInfo(target).Length) return false;
+        using var a=File.OpenRead(source);
+        using var b=File.OpenRead(target);
+        return SHA256.HashData(a).AsSpan().SequenceEqual(SHA256.HashData(b));
+    }
+
     private async Task CopyEbootAsync()
     {
         string eb = Path.Combine(PcOut(), "xmb", "EBOOT.PBP");
@@ -1101,8 +1113,7 @@ public sealed class MainForm : Form
         string dst = Path.Combine(dir, "EBOOT.PBP");
         try
         {
-            bool need = !File.Exists(dst) || new FileInfo(dst).Length != new FileInfo(eb).Length ||
-                        File.GetLastWriteTimeUtc(dst) < File.GetLastWriteTimeUtc(eb).AddSeconds(-2);
+            bool need = !SameEboot(eb,dst);
             if (!need) return;
             await Task.Run(() => { Directory.CreateDirectory(dir); File.Copy(eb, dst, true); File.SetLastWriteTimeUtc(dst, File.GetLastWriteTimeUtc(eb)); });
             Log($"copied EBOOT.PBP with your menu art -> {dst}");
@@ -1525,7 +1536,7 @@ public sealed class MainForm : Form
     private void UpdateButtons()
     {
         bool idle = !_busy && _inst is not null && _ready;
-        foreach (Control c in new Control[] { _game, _folder, _folderBrowse, _stick, _stickRefresh, _toStick, _toFolder, _work, _pcOut, _eboot, _server, _app, _groups, _jobs, _force, _lowPrio })
+        foreach (Control c in new Control[] { _game, _folder, _folderBrowse, _stick, _stickRefresh, _toStick, _toFolder, _work, _pcOut, _eboot, _server, _app, _groups, _jobs, _force, _lowPrio, _compact })
             c.Enabled = idle;
         bool locales = _caps.Has("--add-locale");
         _extras.Enabled = _addExtra.Enabled = _removeExtra.Enabled = _defaultLocale.Enabled = idle && locales;

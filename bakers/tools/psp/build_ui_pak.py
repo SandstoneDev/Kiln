@@ -163,7 +163,9 @@ TEXTURES = [
      dict(size=(32, 32), fmt="4444", linear=True, optional=True)),
 ] + [
     # PSP button glyphs (Kenney Input Prompts, CC0 - in the repo, tools/psp/art/input_prompts/):
-    # UiKit::glyph, e.g. the action bar hotkeys and prompts. Absolute paths: not from <extracted>.
+    # Keep the coloured discs and their authored transparent symbol cutouts.
+    # UiKit adds the silhouette drop shadow at draw time; do not fill the cutouts.
+    # Absolute paths: not from <extracted>.
     (f"pad_{name}", os.path.join(os.path.dirname(os.path.abspath(__file__)), "art", "input_prompts", f"{src}.png"),
      "image", dict(tight=True, size=(32, 32), fmt="4444", linear=True, optional=True))
     for name, src in (("square", "playstation_button_color_square"), ("triangle", "playstation_button_color_triangle"),
@@ -1049,6 +1051,16 @@ def talent_backgrounds(root: str) -> list[tuple[str, bytes]]:
 # background is plain black at alpha 0.6, drawn as a fill), UI-DialogBox-Header cut to its visible 144 x 40
 # (x 56..200), StaticPopupButtonTemplate's UI-DialogBox-Button-* (TexCoords bottom 0.71875 = 128 x 23) at
 # the 120 x 21-unit button size. Optional: without them the generic panel / glue buttons.
+# Settings uses OptionsSliderTemplate's own background, border and thumb.
+TEXTURES += [
+    ("settings_slider_bg", "interface/buttons/ui-sliderbar-background.png", "image",
+     dict(size=(8,8),fmt="4444",linear=True,optional=True)),
+    ("settings_slider_border", "interface/buttons/ui-sliderbar-border.png", "edge",
+     dict(edge=8,fmt="4444",optional=True)),
+    ("settings_slider_thumb", "interface/buttons/ui-sliderbar-button-horizontal.png", "image",
+     dict(size=(16,16),fmt="4444",linear=True,optional=True)),
+]
+
 POPUP_S = 0.8
 TEXTURES += [
     ("sp_border", "interface/dialogframe/ui-dialogbox-border.png", "edge",
@@ -2414,6 +2426,7 @@ FONTS = [
     ("font_small", "fonts/frizqt__.ttf", 10),
     ("font_normal", "fonts/frizqt__.ttf", 13),
     ("font_title", "fonts/morpheus.ttf", 18),
+    ("font_combatcrit", "fonts/frizqt__.ttf", 18),
     ("font_tiny", "fonts/frizqt__.ttf", 8),  # dense blocks (PaperDoll stats)
 ]
 

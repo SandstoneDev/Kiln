@@ -16,6 +16,8 @@ offset, the last one to the end of the file.
 from __future__ import annotations
 
 import glob
+import hashlib
+import io
 import os
 import struct
 
@@ -94,7 +96,7 @@ def make_art(extracted, out_dir, log=print):
         logo = _contain(_image(logo_path), (ICON0_SIZE[0] - 8, ICON0_SIZE[1] - 6))
         icon.alpha_composite(logo, ((ICON0_SIZE[0] - logo.size[0]) // 2, (ICON0_SIZE[1] - logo.size[1]) // 2))
     p0, p1 = os.path.join(out_dir, "ICON0.PNG"), os.path.join(out_dir, "PIC1.PNG")
-    icon.save(p0, format="PNG")
+    icon.convert("RGB").save(p0, format="PNG", interlace=False)
     pic1.save(p1, format="PNG")
     log("  xmb art: background %s, logo %s" % (os.path.relpath(bg_path, extracted),
                                                 os.path.relpath(logo_path, extracted) if logo_path else "none"))
@@ -102,10 +104,12 @@ def make_art(extracted, out_dir, log=print):
 
 
 def read_pbp(data):
-    if data[:4] != b"\x00PBP":
+    if len(data)<40 or data[:4] != b"\x00PBP":
         raise ValueError("not a PBP file")
     version = struct.unpack_from("<I", data, 4)[0]
     offs = list(struct.unpack_from("<8I", data, 8)) + [len(data)]
+    if offs[0]!=40 or offs!=sorted(offs) or offs[-2]>len(data):
+        raise ValueError("invalid PBP section offsets")
     return version, {n: data[offs[i]:offs[i + 1]] for i, n in enumerate(PBP_SECTIONS)}
 
 
@@ -122,12 +126,17 @@ def write_pbp(version, sections):
 def repack_eboot(eboot_in, eboot_out, icon0, pic1):
     with open(eboot_in, "rb") as f:
         version, sec = read_pbp(f.read())
-    with open(icon0, "rb") as f:
-        sec["ICON0.PNG"] = f.read()
-    with open(pic1, "rb") as f:
-        sec["PIC1.PNG"] = f.read()
-    with open(eboot_out, "wb") as f:
-        f.write(write_pbp(version, sec))
+    from PIL import Image
+    for name,path,size in [("ICON0.PNG",icon0,ICON0_SIZE),("PIC1.PNG",pic1,PIC1_SIZE)]:
+        with Image.open(path) as image:
+            if image.size!=size: raise ValueError("%s must be %s" % (name,size))
+            output=io.BytesIO()
+            image.convert("RGB").save(output,format="PNG",interlace=False)
+            sec[name]=output.getvalue()
+    temp=eboot_out+".kiln.tmp"
+    with open(temp,"wb") as f: f.write(write_pbp(version,sec))
+    os.replace(temp,eboot_out)
+
 
 
 def png_size(path):
@@ -135,3 +144,23 @@ def png_size(path):
         head = f.read(24)
     return struct.unpack(">II", head[16:24]) if head[:8] == b"\x89PNG\r\n\x1a\n" else None
 
+
+
+def resolve_eboot(explicit=None,target=None,out=None):
+    if explicit:
+        if not os.path.isfile(explicit): raise ValueError("selected EBOOT.PBP does not exist: %s" % explicit)
+        return explicit
+    if target and os.path.basename(os.path.normpath(target)).lower()=="data": target=os.path.dirname(os.path.normpath(target))
+    for folder in (target,out):
+        if folder:
+            path=os.path.join(folder,"EBOOT.PBP")
+            if os.path.isfile(path): return path
+    return None
+
+def executable_identity(path):
+    if not path: return "none"
+    with open(path,"rb") as f: _,sections=read_pbp(f.read())
+    digest=hashlib.sha256()
+    for name in ("PARAM.SFO","DATA.PSP","DATA.PSAR"):
+        digest.update(name.encode());digest.update(struct.pack("<I",len(sections[name])));digest.update(sections[name])
+    return digest.hexdigest()

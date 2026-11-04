@@ -120,6 +120,7 @@ constexpr uint32_t kKindPoints = 12;
 // 193) is in g_anims already. Baked right after Stand / Walk / Run so the
 // --max-anim-kb cap drops other things first.
 const std::vector<uint32_t> kMountAnims = {37, 38, 39, 40, 94};
+bool g_spellAnimations = true;
 bool g_animate = true;          // --no-anim: only the static m_ (as before)
 // Priority order (a --max-anim-kb cap drops from the end; Stand's other
 // variations - the idle fidgets - come after everything listed here, the
@@ -1765,7 +1766,7 @@ int main(int argc, char** argv) {
         else if (a == "--map" && i + 1 < argc) mapId = static_cast<uint32_t>(std::atoi(argv[++i]));
         // Creature anim.
         else if (a == "--no-anim") g_animate = false;
-        else if (a == "--anims" && i + 1 < argc) g_anims = parseIdList(argv[++i]);
+        else if (a == "--anims" && i + 1 < argc) {g_anims = parseIdList(argv[++i]);g_spellAnimations=false;}
         else if (a == "--npc-emotes" && i + 1 < argc) g_npcEmotes = parseIdList(argv[++i]);
         else if (a == "--no-state-emotes") g_useStateEmotes = false;
         else if (a == "--rate" && i + 1 < argc) g_rate = std::max(1.0f, static_cast<float>(std::atof(argv[++i])));
@@ -1812,6 +1813,14 @@ int main(int argc, char** argv) {
     if (!db.load(root)) {
         std::fprintf(stderr, "missing DBC under %s/dbfilesclient\n", root.c_str());
         return 1;
+    }
+    if(g_animate && g_spellAnimations) {
+        pipeline::DBCFile spellKits;
+        if(loadDbc(root,"spellvisualkit.dbc",spellKits) && spellKits.getFieldCount()>2)
+            for(uint32_t row=0;row<spellKits.getRecordCount();++row)for(uint32_t field:{1u,2u}) {
+                const uint32_t id=spellKits.getUInt32(row,field);
+                if(id && id<65535 && std::find(g_anims.begin(),g_anims.end(),id)==g_anims.end())g_anims.push_back(id);
+            }
     }
     std::vector<SpawnRow> spawns;
     if (!spawnsPath.empty() && !readSpawns(spawnsPath, spawns)) {

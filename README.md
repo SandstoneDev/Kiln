@@ -237,6 +237,17 @@ With `--json`: one `check` event per problem or extra file (`where` out/target, 
 `step`, `locale`, `detail`), `update` events (step, reason), `copy` events, and a final `done` event
 (for `--check`: `ok`, `files`, `bytes`, `problems`, `by_kind`, `extra`).
 
+### Updating an existing PSP install
+
+The updated character converter writes optional `f_<race>_<sex>` facial-hair/scalp layers. Rebuild `characters` for the correct eyebrow/beard colors. Updated sounds include the client AreaTable/SoundAmbience day/night mapping and weather WAVs. Rebuild `sounds` with the matching converter executables and copy every generated sounds part.
+Use `--steps audio` to refresh the full audio group. Copy `audio.pak` and merge the generated
+`data/music/` folder into the existing PSP data folder. For model and spell updates, select
+`characters,creatures,spellfx` and copy their rebuilt packs.
+
+`--compact` (also available in Advanced settings) keeps selected maps and reduces model textures to 64 pixels, sampled animation rate to 20 Hz and ordinary sound samples to 11025 Hz. It trades visual/audio quality for size; existing terrain textures and gameplay data remain intact. Build to a separate output folder to compare. Exact savings depend on selected maps/locales; no fixed total is promised.
+
+Run `python -m kilnlib.size_report <output-or-data-folder>` for a read-only size breakdown. Only runtime data belong on the PSP; extraction work folders, logs, backups and old converted copies can remain on the PC. Optional maps/locales can be selected separately, but maps omitted from an install cannot be visited until installed.
+
 ## Languages
 
 The port shows the game in the languages of the client files it was made from. Kiln converts:

@@ -216,6 +216,10 @@ class Ctx:
             doc["kiln"] = KILN_VERSION
             if builtin == "profile":
                 doc["profiles"] = self.tree_hash(os.path.join(self.bakers, "Data", "expansions"), ["*/*.json"])
+            if builtin in ("xmb_art","x"):
+                doc["xmb_code"]=self.file_hash(os.path.join(os.path.dirname(__file__),"xmb.py"))
+                source=xmb.resolve_eboot(getattr(self.a,"eboot",None),getattr(self.a,"target",None),self.out)
+                doc["xmb_executable"]=xmb.executable_identity(source)
         return doc
 
     def step_identity(self, step):
@@ -306,6 +310,8 @@ def build_steps(ctx, map_groups, locales=None):
         maps_note = ("per-map steps (terrain_/doodads_/minimap_<map>.pak for %s) are added after the client "
                      "tables and the maps' WDT files are extracted - they are read from the client's own map table"
                      % ", ".join(map_groups))
+    if getattr(ctx.a,"compact",False):
+        S.apply_compact(all_steps)
     copies = []
     for loc in (locales if locales is not None else ctx.client.secondary):
         for st in all_steps:
@@ -531,10 +537,12 @@ def builtin_xmb(ctx, step, log_path):
         try:
             icon0, pic1 = xmb.make_art(ctx.folder(step, "X"), out_dir, log=lambda m: log.write(m + "\n"))
             log.write("ICON0 %s, PIC1 %s\n" % (xmb.png_size(icon0), xmb.png_size(pic1)))
-            eboot = getattr(ctx.a, "eboot", None)
+            eboot = xmb.resolve_eboot(getattr(ctx.a,"eboot",None),getattr(ctx.a,"target",None),ctx.out)
             if eboot:
                 xmb.repack_eboot(eboot, os.path.join(out_dir, "EBOOT.PBP"), icon0, pic1)
                 log.write("EBOOT.PBP repacked with this art -> %s\n" % os.path.join(out_dir, "EBOOT.PBP"))
+            else:
+                ctx.say("XMB PNGs created, but no EBOOT was selected or found. Select EBOOT.PBP in Advanced settings to embed the art; copying PNGs into data/ does not display them in the XMB.")
             return 0
         except (RuntimeError, OSError, ValueError) as e:
             log.write("xmb art failed: %s\n" % e)
