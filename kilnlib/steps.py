@@ -189,8 +189,7 @@ def static_steps(bakers_dir):
     s.append(Step("audio", "audio", "audio.pak + music/: zone music (tracks copied from the client)",
                   prefixes=P_DBC + P_MUSIC,
                   run=[["@exe:psp_audio_conv", "--extracted", "{X}", "--out", "{D}/audio.pak", "--music-out",
-                        "{D}/music", "--no-original"],
-                       ["@py:psp_music_compat.py", "--music-dir", "{D}/music"]],
+                        "{D}/music", "--no-original"]],
                   outputs=["data/audio.pak", "data/music/**/*"]))
     s.append(Step("characters", "models", "characters.pak: player races (+ the emote text table)",
                   prefixes=P_DBC + P_MODELS, locale="variant",

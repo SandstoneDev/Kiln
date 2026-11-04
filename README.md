@@ -241,7 +241,7 @@ With `--json`: one `check` event per problem or extra file (`where` out/target, 
 
 The updated character converter writes optional `f_<race>_<sex>` facial-hair/scalp layers. Rebuild `characters` for the correct eyebrow/beard colors. Updated sounds include the client AreaTable/SoundAmbience day/night mapping and weather WAVs. Rebuild `sounds` with the matching converter executables and copy every generated sounds part.
 Use `--steps audio` to refresh the full audio group. Copy `audio.pak` and merge the generated
-`data/music/` folder into the existing PSP data folder. For model and spell updates, select
+`data/music/` folder into the existing PSP data folder. To add ghost ambience, follow the local FFmpeg generation instructions in [death audio setup](bakers/docs/PSP_FISHING_CHARGE_DEATH_AUDIO.md). For model and spell updates, select
 `characters,creatures,spellfx` and copy their rebuilt packs.
 
 `--compact` (also available in Advanced settings) keeps selected maps and reduces model textures to 64 pixels, sampled animation rate to 20 Hz and ordinary sound samples to 11025 Hz. It trades visual/audio quality for size; existing terrain textures and gameplay data remain intact. Build to a separate output folder to compare. Exact savings depend on selected maps/locales; no fixed total is promised.
@@ -325,6 +325,8 @@ meshoptimizer and StormLib installed:
 cmake -S bakers/tools/psp/converter -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 cmake --build build
 ```
+
+Run `python packaging/export_manifest.py --check` from the checkout root to verify the exported source. To regenerate the manifest after adding or removing baker files, stage those paths and run the same command without `--check`.
 
 Copy the `psp_*.exe` files into `bin/` (or pass `--tools build`) and copy the DLLs the executables
 import next to them (the bundle's layout), or pass the MSYS2 `ucrt64/bin` folder as `--dll-dir` (Kiln

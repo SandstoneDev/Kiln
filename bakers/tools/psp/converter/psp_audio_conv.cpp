@@ -34,6 +34,7 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
 
 using namespace wowee;
@@ -110,7 +111,10 @@ int main(int argc, char** argv) {
         auto it = trackIndex.find(card);
         if (it != trackIndex.end()) return it->second;
         const std::string src = p.rfind("file:", 0) == 0 ? p.substr(5) : g_root + "/" + normalise(p);
-        const fs::path dst = fs::path(musicOut) / card;
+        // Keep client-relative IDs in audio.pak and use the runtime's flat music root on disk.
+        constexpr std::string_view musicPrefix = "sound/music/";
+        const fs::path dst = fs::path(musicOut) /
+            (card.starts_with(musicPrefix) ? card.substr(musicPrefix.size()) : card);
         std::error_code ec;
         if (!fs::exists(src, ec)) {
             ++missing;
@@ -131,6 +135,7 @@ int main(int argc, char** argv) {
         trackIndex[card] = idx;
         return idx;
     };
+    addTrack("sound/music/gluescreenmusic/wotlk_main_title.mp3");
     std::vector<fmt::AudioArea> areas;
     for (uint32_t r = 0; r < area.getRecordCount(); ++r) {
         const uint32_t id = area.getUInt32(r, 0);

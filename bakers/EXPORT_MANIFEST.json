@@ -1,347 +1,375 @@
 {
   "files": {
     "Data/expansions/cata/movement_sequences.json": {
-      "sha256": "51745e5460a406162b51b6e952d9daf1f30b3ed03743b6668231c8b6991acb93",
+      "sha256": "4c85479fcd0bb3ee346fa29bfcf7cc1fdf0a57ae45f87a8a4cd3a98124ee3252",
       "why": "protocol profiles (opcode and field tables of each supported build)"
     },
     "Data/expansions/classic/dbc_layouts.json": {
-      "sha256": "283b9d6e12bb3b8fdabf272ae2f0e9c6306b2a074bdc1beca66feac5f8b4145b",
+      "sha256": "aaff32b1923b960a170c5b1cbbc22fcd3be778393f827c9c57b9108dfdab47c0",
       "why": "protocol profiles (opcode and field tables of each supported build)"
     },
     "Data/expansions/classic/expansion.json": {
-      "sha256": "f414ab2fe88937e48c2a2836bd725918fae08c5e841f2b0f5217e8610ff12878",
+      "sha256": "0898c10673c1b69a2a51c03faa2de09b728bcc3c7f4af0b032712ca932ac551b",
       "why": "protocol profiles (opcode and field tables of each supported build)"
     },
     "Data/expansions/classic/opcodes.json": {
-      "sha256": "d2b257a47baea4690b9b20e3601310cafb1a968923b878d2b094ae02aa692260",
+      "sha256": "aad609cd0bce31c3e47392ff9386ec1af1c2ded41120254fb838693bd94c5f3a",
       "why": "protocol profiles (opcode and field tables of each supported build)"
     },
     "Data/expansions/classic/update_fields.json": {
-      "sha256": "9d01ca145a335b566c6f8b9b3254c5e01242a041353fe73b204dd04603fe4b8b",
+      "sha256": "1443b66acf7e9b02de3c97042e1097be9791ac248c39a030cd213968161de73f",
       "why": "protocol profiles (opcode and field tables of each supported build)"
     },
     "Data/expansions/tbc/dbc_layouts.json": {
-      "sha256": "47f3a724031f7d2b504338bf4c339cea48695440f4b867d4b9f01666f16a2dcb",
+      "sha256": "b0bd6e626d7f82d4e11fa3635d17f273b986190641f121024762a7b5c222c63a",
       "why": "protocol profiles (opcode and field tables of each supported build)"
     },
     "Data/expansions/tbc/expansion.json": {
-      "sha256": "7b30e12dd2d3909da3de69f1270e8200dbf7f953f9bbb280994cfc82e441a14c",
+      "sha256": "87da3b3be7d1a9c2269516650f073c8c2ef0b69c742a94f0462561f397667bc2",
       "why": "protocol profiles (opcode and field tables of each supported build)"
     },
     "Data/expansions/tbc/opcodes.json": {
-      "sha256": "f0e9e34064fd41236d93858d9265effd1b5c39413491c13fd12a9af78b001d92",
+      "sha256": "bb34cae46d132539a8002aed7bc42765b7e6a34a5f1dcb7c8fbd847373120e7c",
       "why": "protocol profiles (opcode and field tables of each supported build)"
     },
     "Data/expansions/tbc/update_fields.json": {
-      "sha256": "91f968832c509dc48ed5085033751708a78a2b5f4362178d9a6df61462261d8e",
+      "sha256": "1beddbcc61e1b2e787e664d316272b78670e92bfac113e0ffcdee02bb5edc33a",
       "why": "protocol profiles (opcode and field tables of each supported build)"
     },
     "Data/expansions/turtle/dbc_layouts.json": {
-      "sha256": "e0e9f8714135ab514579246b9b22ecb793dc2058d7913860dbb9458c56a6998a",
+      "sha256": "2fe48f3255171b95e93db55f90ec5f31bfd0f70b5057c327059ed47499a6a44d",
       "why": "protocol profiles (opcode and field tables of each supported build)"
     },
     "Data/expansions/turtle/expansion.json": {
-      "sha256": "d2b9d8318173e0bd14488bdcb660a1921e016150438abf08884a40db68ec18d4",
+      "sha256": "e49abf6033d503736bf7d6f7037ce1f8b5cf5f69afc98d1e6361e75f7dc1a7f1",
       "why": "protocol profiles (opcode and field tables of each supported build)"
     },
     "Data/expansions/turtle/opcodes.json": {
-      "sha256": "6c0ee944e35c58e200305ef4a565bd4bf653befd9bca31d61c0299410140ae43",
+      "sha256": "6b265994aa4f2f5f5827ba823963f620c992cdbec69f0ec8b9894f19505da48c",
       "why": "protocol profiles (opcode and field tables of each supported build)"
     },
     "Data/expansions/turtle/update_fields.json": {
-      "sha256": "9d01ca145a335b566c6f8b9b3254c5e01242a041353fe73b204dd04603fe4b8b",
+      "sha256": "1443b66acf7e9b02de3c97042e1097be9791ac248c39a030cd213968161de73f",
       "why": "protocol profiles (opcode and field tables of each supported build)"
     },
     "Data/expansions/wotlk/dbc_layouts.json": {
-      "sha256": "c62a4bb773b1493bb224cfa8d9b85e88189d892a8d6a320ffa2f323786ec624f",
+      "sha256": "eee5048f144e0ab113246dedc906f1cd5b894ba9b0117f1fdbb0dd602a00dc9f",
       "why": "protocol profiles (opcode and field tables of each supported build)"
     },
     "Data/expansions/wotlk/expansion.json": {
-      "sha256": "8ce9da671fa87306c031c03abe7ef2c0f789a108ce8df4305f863a65d198e993",
+      "sha256": "8e36033f2b199e185ac7964e48e4fe0e790ebfb43c9e3f37bf83bc7487fb09e3",
       "why": "protocol profiles (opcode and field tables of each supported build)"
     },
     "Data/expansions/wotlk/opcodes.json": {
-      "sha256": "a9726a35472198dbafc6b2bf0d63d2d0eb3b3f682a3982232728aca816590a79",
+      "sha256": "1b69824fc9f976bf816516ea3a418bab7a3870713f1d7ed17fa8742712850fe6",
       "why": "protocol profiles (opcode and field tables of each supported build)"
     },
     "Data/expansions/wotlk/update_fields.json": {
-      "sha256": "fab1e1d6ce00c3d454276d4056ebed20022d495910969f0ce7b90445999bb84f",
+      "sha256": "3a97205add646830180c0ffd2b12685377a0638c82aa13dd60ebf843c9fbdc5a",
       "why": "protocol profiles (opcode and field tables of each supported build)"
     },
     "LICENSE": {
-      "sha256": "a5a436d9438ca6569b157371b29fa9d0271147bf3e75cb7d0191e19c3221a512",
+      "sha256": "d51f136bfbc19696874fcb07e2c0019fed1c073438363b11e7ed5dc86141a6a3",
       "why": "upstream licence (MIT with an additional restriction)"
     },
     "NOTICE": {
-      "sha256": "7211bbcfe2a820c7356457dca35a4c27ee6bba0f87e4e8a9c5c5428c5ea6bac1",
+      "sha256": "459165d740f9a3ac89d84974c04278f747aa977ee430c0c67b2fe2f1c3584411",
       "why": "upstream notice"
     },
+    "docs/PSP_ADAPTIVE_RECOVERY_FFX_PORTRAITS.md": {
+      "sha256": "4f284dd05c6e2789fbf791479552a7b2e5d703f879cb5bbee3d12130b5ac5f11",
+      "why": "adaptive recovery, glow and close portrait behavior/validation notes"
+    },
+    "docs/PSP_FISHING_CHARGE_DEATH_AUDIO.md": {
+      "sha256": "6cf8824a3ed5591d5d8ea48cbefeeeeec43fe964eda882d2ee777e04068c20f0",
+      "why": "Fishing event visuals, local Charge spline ownership, death audio and host regressions"
+    },
+    "docs/PSP_GLOW_REMOVAL_INNS_FISHING.md": {
+      "sha256": "413a8fcedabe86e50d02bf19db4c359adec898a3a84812e14d69fdc2b39b9fd7",
+      "why": "Full-screen glow removal, server-owned inn resting and fishing visuals/regressions"
+    },
+    "docs/PSP_GRAPHICS_PRESETS.md": {
+      "sha256": "9b86a63c652706abb5433d4cda3cfbd095ed09965ef96120e18a52fffde6d45a",
+      "why": "preset levels, config migration and installation guide"
+    },
+    "docs/PSP_STORMWIND_FLOORS_HEARTHSTONE.md": {
+      "sha256": "addd21889b1ac2a27f3b5e8b9f19a50659a760de090a56c84586b2d924e4fdcd",
+      "why": "matching-world-stamp floor and hearthstone evidence, fixes and limits"
+    },
+    "docs/PSP_STORMWIND_STATUES.md": {
+      "sha256": "1ab1b9464428373f9620a507da033ed1750c01877b54b6beeebad88c6fe38c2e",
+      "why": "Bounded Stormwind hero statue landmarks, metadata repair and regression tests"
+    },
+    "docs/PSP_WMO_BATCHING_CAMERA_RAYS.md": {
+      "sha256": "5e8f33c9b347c2fa9c41d6cf2f1a144f415318d9aa8cd3d79d76c92904cb6428",
+      "why": "Bounded building draw cache, nearest-first camera collision and reference regressions"
+    },
     "extern/VERSIONS.md": {
-      "sha256": "b9b0664570cf9f309083d3379b332df7682d067ec3a1622634768414e6125689",
+      "sha256": "3affd6c6b6d727e479b2cb0158bdcd566c1d4796e16a499efd2af553a520733b",
       "why": "versions of the vendored libraries"
     },
     "extern/lua-5.1.5/COPYRIGHT": {
-      "sha256": "77faabe39b05689a2ef408c467708eac910dcc2efbffb09aec3767b7cfe89b40",
+      "sha256": "ee5e3e82af1e1b543c4f216e399d7c8cfee797711913f349e385101c4ae60a79",
       "why": "Lua licence"
     },
     "extern/lua-5.1.5/src/lapi.c": {
-      "sha256": "88603b1d26a282cd6c637e0b637b6ecea3373dd05a1ca1bc3e2b9cc56a251b3f",
+      "sha256": "6aa0d9fdd88b13fe46568ad6722ecf44164fb84476cfdf6480cf05b5704935f8",
       "why": "Lua 5.1.5 (MIT), built by the converter project"
     },
     "extern/lua-5.1.5/src/lapi.h": {
-      "sha256": "d303b261fe6018f51e0ce84b9f90acef8683cbe8ac257f81225d42e4b85efee1",
+      "sha256": "4aea4c1b975d43184f4f1fd1a42c79cf11d74d2801315740cec07fe9abebb56d",
       "why": "Lua 5.1.5 (MIT)"
     },
     "extern/lua-5.1.5/src/lauxlib.c": {
-      "sha256": "864f1e52a7e12688e148679356fedf8a3baff8a66800d527617535ac1d678d6d",
+      "sha256": "b564650bf4aca2757b9966311d32c8d5fea8803f6f33d72a856448d3b5d6d992",
       "why": "Lua 5.1.5 (MIT), built by the converter project"
     },
     "extern/lua-5.1.5/src/lauxlib.h": {
-      "sha256": "82d7bcc075308fd1dcee8a8766ab69cda6945624fc4899021e5e971717df1b59",
+      "sha256": "c741f9c1587f29fd08a79acbe0c46884768a47f89bee4147669f774c5cf50fc0",
       "why": "Lua 5.1.5 (MIT)"
     },
     "extern/lua-5.1.5/src/lbaselib.c": {
-      "sha256": "4c99183b5349582faf58c8664655176f30df55f99318af2664465dcc58ae3e3e",
+      "sha256": "b14c49fae6fa4690662185bf842cb05d87756585d2f5bdd8495251fde83ef331",
       "why": "Lua 5.1.5 (MIT), built by the converter project"
     },
     "extern/lua-5.1.5/src/lcode.c": {
-      "sha256": "6846323c1367553e1f996d34247abf279e8aff70551beb188641358b66438102",
+      "sha256": "027030bbef34115588bd4a64cf4c8c18236a56936835475a154277478767bac5",
       "why": "Lua 5.1.5 (MIT), built by the converter project"
     },
     "extern/lua-5.1.5/src/lcode.h": {
-      "sha256": "f13b4081ad1d48f8423580a624d7d0ecc7dea6cb052aa4318a77cf40af38c206",
+      "sha256": "97d5a37f3b1b19eda1ef39607b3358aa0f7e917568ccd27ed0f14bc6a70d4b17",
       "why": "Lua 5.1.5 (MIT)"
     },
     "extern/lua-5.1.5/src/ldblib.c": {
-      "sha256": "6870a2b2daf4bb2e666be87700c68d56e1a940da089db0665ffd840a3e6212e3",
+      "sha256": "eb8b056711f037e764f746d989f4e40621d8f9ff45add3336790c389849ed0ab",
       "why": "Lua 5.1.5 (MIT), built by the converter project"
     },
     "extern/lua-5.1.5/src/ldebug.c": {
-      "sha256": "791fdeeff52e67ebb3d2a196822bbae14cb853413c981b9f903615a50c7cd669",
+      "sha256": "afa5840195befaec55177273c8168748026b38df3243767fc740cc7ced0c4c8f",
       "why": "Lua 5.1.5 (MIT), built by the converter project"
     },
     "extern/lua-5.1.5/src/ldebug.h": {
-      "sha256": "f02eded8c4860046b5b2058fca83a4b55fcaa4422a5e16ab92acd94d7e82ed2c",
+      "sha256": "d036f0dbb996bdecd48d505746f72c31b82fb2fc38f111b780568338d4ed9e9c",
       "why": "Lua 5.1.5 (MIT)"
     },
     "extern/lua-5.1.5/src/ldo.c": {
-      "sha256": "41be5a34166c4b2f919d79c2dd49e5bdf408e2e95fe046434723104d1f9d1f84",
+      "sha256": "d5942081ba661286327e30e22af5d11a1f4308d1f029a203c342b5f541cfa9b6",
       "why": "Lua 5.1.5 (MIT), built by the converter project"
     },
     "extern/lua-5.1.5/src/ldo.h": {
-      "sha256": "be1970358a771004937d263282326daab04277a4ea63c0e518e52a2a41d5bcf2",
+      "sha256": "591ad9a90098d3fbf06839da3de752d2c2585cbf5801dde4cdaffe12b23a182e",
       "why": "Lua 5.1.5 (MIT)"
     },
     "extern/lua-5.1.5/src/ldump.c": {
-      "sha256": "f76a0fb937d24a48f4274a136ad9236b79add6c3d5c6b27ab034acbcf51aa68b",
+      "sha256": "30d83d766351bb053b3d20793a6bcd2ef0210e8fad76a7032abbe574bafa0ca3",
       "why": "Lua 5.1.5 (MIT), built by the converter project"
     },
     "extern/lua-5.1.5/src/lfunc.c": {
-      "sha256": "344d6f5f003cb87aab783d2ef4d72d0f732cec4a2807de9ddf25db405ab99073",
+      "sha256": "525681d79098958530e5c937f7cbe94a4dafa679746ffdb16258f82b7ece29ce",
       "why": "Lua 5.1.5 (MIT), built by the converter project"
     },
     "extern/lua-5.1.5/src/lfunc.h": {
-      "sha256": "0f18fd116cc0a8091a7c40e5c33bb438e6211d6db349513148f1ea10e686d404",
+      "sha256": "3cea0071ffda94eac378adb5f1ecb467ef2ffafff4315459e4ccdf05b5119da4",
       "why": "Lua 5.1.5 (MIT)"
     },
     "extern/lua-5.1.5/src/lgc.c": {
-      "sha256": "ec9733676676ecb86e3fcd15e3080ba95b418061038a3e768ff374b09b008232",
+      "sha256": "35be212ad0e4d89336f50f11cd0e991c04fe59b023ec03a626bf3f98e69fd1dc",
       "why": "Lua 5.1.5 (MIT), built by the converter project"
     },
     "extern/lua-5.1.5/src/lgc.h": {
-      "sha256": "42fe93edf3a4bf7938a6adb18882872a59b2de9c44f5e962ff2109729286b3a6",
+      "sha256": "fbab2b989515377729d4c029dd58b3b6242877a88a7c4cfa703ea0deeb069a1e",
       "why": "Lua 5.1.5 (MIT)"
     },
     "extern/lua-5.1.5/src/linit.c": {
-      "sha256": "a9fa0d68f258fd0f310246f7861cfc71d953e283075193fa5473d7babfc4d632",
+      "sha256": "c0c97c45862f6c978620a9682cd2201f0fc29c2afbcab824ba20d26cc1745e56",
       "why": "Lua 5.1.5 (MIT), built by the converter project"
     },
     "extern/lua-5.1.5/src/liolib.c": {
-      "sha256": "5bb618ddef7cec500e39b5d47f914d498e36138adf2a28e2ab3a6dfaf94d2c65",
+      "sha256": "a40f1d2c4aed9835885264cc6caf81c3bd2d5db93af3d313cc0478db37d93169",
       "why": "Lua 5.1.5 (MIT), built by the converter project"
     },
     "extern/lua-5.1.5/src/llex.c": {
-      "sha256": "55bdbe362451899b51186743e0ae25ef40780b94f01228f120e9add792c49fd3",
+      "sha256": "f1ade23f957e69f164ff28e133b201dff5d81726c390b060110b60907831e79b",
       "why": "Lua 5.1.5 (MIT), built by the converter project"
     },
     "extern/lua-5.1.5/src/llex.h": {
-      "sha256": "c86e68a0dc2a9692462730a7d3bde6bec2e3e13a9192f420340505cba4167015",
+      "sha256": "0f3715d22b025727ef11debd641600a123b81718d195cd8445ac6378814458e6",
       "why": "Lua 5.1.5 (MIT)"
     },
     "extern/lua-5.1.5/src/llimits.h": {
-      "sha256": "f0e369d46b79026107f4b7ac54d3ee70b15e9482d8e05f5cc16154600bae336c",
+      "sha256": "1910669296681d9d2814ca46c325063724bb634c0428dae4e5ff59be54e0b758",
       "why": "Lua 5.1.5 (MIT)"
     },
     "extern/lua-5.1.5/src/lmathlib.c": {
-      "sha256": "6a2e9673eda84cf41d43040875705ba0bac36b2032460603546be06625aecd9f",
+      "sha256": "e2933a56332d567cdd69f0fe514d638a8f82da6878754ff259e77cf2157263c3",
       "why": "Lua 5.1.5 (MIT), built by the converter project"
     },
     "extern/lua-5.1.5/src/lmem.c": {
-      "sha256": "08a47c61d5347280fac3040cbe3c07e1fbba81dcef10417136cf7b319a0ad628",
+      "sha256": "e63c50cb1c75356bd4123c9ca05f77bd0cd99e05c099cf6d1bf472086761e9c5",
       "why": "Lua 5.1.5 (MIT), built by the converter project"
     },
     "extern/lua-5.1.5/src/lmem.h": {
-      "sha256": "465e212c1cf0c25d750f20ac9cd6095dad1c3aa23f34724c9492ac733654a22b",
+      "sha256": "abd1258418486c69bf5a93ceea3a1b9f8af2c7497a4fa6c27b442ffec2c5bbb1",
       "why": "Lua 5.1.5 (MIT)"
     },
     "extern/lua-5.1.5/src/loadlib.c": {
-      "sha256": "15ee4853ba0b0ef609ff05a48be816377d886e842938387e5391a687653044cf",
+      "sha256": "b01bc465bb2e280fb45d24aea98d5ddd9dfd0999f44422e1151aafa1d7f5385c",
       "why": "Lua 5.1.5 (MIT), built by the converter project"
     },
     "extern/lua-5.1.5/src/lobject.c": {
-      "sha256": "5160a4348317285d003aaa7b4c8db374da89459898b441b06a5aaee395c96226",
+      "sha256": "d704915c79c721556cc5850d741ed3bef1611221356f0e3a2f0ee5cfd5fd3632",
       "why": "Lua 5.1.5 (MIT), built by the converter project"
     },
     "extern/lua-5.1.5/src/lobject.h": {
-      "sha256": "6ea53c1bcdaabb4bdbe02287eb3b3fddbac497d7642147395f49646542186b03",
+      "sha256": "274c18373fbbad71bfebd534cae4b2d2e49934abf6672f44735edc6646fb6a8b",
       "why": "Lua 5.1.5 (MIT)"
     },
     "extern/lua-5.1.5/src/lopcodes.c": {
-      "sha256": "fa1233a188697642be338114ce31a623bbfe49c5e718fe5b33a6b4bce2c8bb8c",
+      "sha256": "63cd74edc75970092a8ce078c4ab970efa1ee18de960d00eb826d49fe98d8a76",
       "why": "Lua 5.1.5 (MIT), built by the converter project"
     },
     "extern/lua-5.1.5/src/lopcodes.h": {
-      "sha256": "6dc1c16676e28cad35e6acf40b4c110b04630ebffa2e36c4fd6866df43028a5b",
+      "sha256": "a15fe349da7c1e73b563e8c3249fe7d535eccc844cb30ec80b4e335b0699279b",
       "why": "Lua 5.1.5 (MIT)"
     },
     "extern/lua-5.1.5/src/loslib.c": {
-      "sha256": "eae51d556823c9fd96c1089010c8fa08c609aeff90162ab429b7421a442cc756",
+      "sha256": "f0d5892f152cf7e1001b086e48774ccb6e567d11f1bf521f27050c15d9a0f040",
       "why": "Lua 5.1.5 (MIT), built by the converter project"
     },
     "extern/lua-5.1.5/src/lparser.c": {
-      "sha256": "532d6039f96420c9566677ad56aba1d3ecf05a1d61928ddbf2742e82cc3cbab7",
+      "sha256": "3590f24bab5763af673182e40d33194a7de6f5eabe5432c02a548d44225d2b63",
       "why": "Lua 5.1.5 (MIT), built by the converter project"
     },
     "extern/lua-5.1.5/src/lparser.h": {
-      "sha256": "398b81305656d8f0a9827943d7ab77e6ccaf06794d129a0dfff3532389688d4e",
+      "sha256": "84512d6540b83ab599cd8de5a1c8c4deaf71ff353f8e4fbc2e4ca135ba4e9ef0",
       "why": "Lua 5.1.5 (MIT)"
     },
     "extern/lua-5.1.5/src/lstate.c": {
-      "sha256": "a09cc02990c27639560c357babbe2c01c753ac19d8b7bea903abf01c5c3c63fb",
+      "sha256": "c36d6b9354aaa30b5323b4984f3172783f69e0deb3186c2ef6f16a8281c59c29",
       "why": "Lua 5.1.5 (MIT), built by the converter project"
     },
     "extern/lua-5.1.5/src/lstate.h": {
-      "sha256": "620cb6779a368c9c083e91bafd5a014c3c3c02951b5d5d4b10e59725c1d2ea48",
+      "sha256": "dc64ea7ec74d7c1efaeaf6a9e2257f0b7856a5c988747948af2e76cf079d20fe",
       "why": "Lua 5.1.5 (MIT)"
     },
     "extern/lua-5.1.5/src/lstring.c": {
-      "sha256": "53cc6dd8cbbef5c91fe390d293f209ae867211c36bbe596dcd5a5857827706d7",
+      "sha256": "aa7e934c435d870b9d937ac2fb03dbfa15d367012d46e7e995a2ad8d440f2f6d",
       "why": "Lua 5.1.5 (MIT), built by the converter project"
     },
     "extern/lua-5.1.5/src/lstring.h": {
-      "sha256": "845244bef3dfb35e323503cd57b3be0a038e73a9b041d733f4c1f427a5b93b81",
+      "sha256": "c0e8af4eb33e3357be79f906e7e1191ba53a3a790d36ca15b50471d3a339e1f0",
       "why": "Lua 5.1.5 (MIT)"
     },
     "extern/lua-5.1.5/src/lstrlib.c": {
-      "sha256": "f195cad0ef5c40aea7ad41bb23a2934d3cd796e41d7c8a11bcbfa3db37a5d626",
+      "sha256": "e8048c79ae34be0fd29aa8db1a341cd600f5e09b9133b5810910e07b855a32d5",
       "why": "Lua 5.1.5 (MIT), built by the converter project"
     },
     "extern/lua-5.1.5/src/ltable.c": {
-      "sha256": "d5df266f7ed1bb832c10f32958f8f2940c0205a513c9af1c88ed1a7b164dc4fc",
+      "sha256": "3a853ce89bf5e834ec53f2a0dd2386eb8b84accbe5fdc18dabd7515b819f0f7c",
       "why": "Lua 5.1.5 (MIT), built by the converter project"
     },
     "extern/lua-5.1.5/src/ltable.h": {
-      "sha256": "a93a3ab6d8d515c9086eacc8967c236daa68064d488185d885ea48900d22dcf9",
+      "sha256": "219e6ac2bf43aaa93093c6bcd571c012660325e6b87ea3d6c1b40679a0acfd64",
       "why": "Lua 5.1.5 (MIT)"
     },
     "extern/lua-5.1.5/src/ltablib.c": {
-      "sha256": "1e1aa085f3ba40cfc136399002ebf284222b26e1dc7d353d01200933c719fc97",
+      "sha256": "e934dc4b2fc117a501c717302a00147f7b44eea978ef87a58a3e40e9bfe45d20",
       "why": "Lua 5.1.5 (MIT), built by the converter project"
     },
     "extern/lua-5.1.5/src/ltm.c": {
-      "sha256": "a7551c630c2c86701af7ef57648062b3d802b69b2c5bb8081553fe36bf570303",
+      "sha256": "9759ae5d1aa3b11e1c7faa6c0f65e05c7126417f7f8f3f989d82fc170b07f891",
       "why": "Lua 5.1.5 (MIT), built by the converter project"
     },
     "extern/lua-5.1.5/src/ltm.h": {
-      "sha256": "dd24d1e73f109bbea9a97940b68c0e7a968ce0e3b3b76e7210b7e701c2bdf891",
+      "sha256": "54f4c2fa76b8ed8d48163e31807a19999f5d65b009ae862cb757e0773f2aa485",
       "why": "Lua 5.1.5 (MIT)"
     },
     "extern/lua-5.1.5/src/lua.c": {
-      "sha256": "aae14ae9032eb056039938719fa8dac5906f0c102e09bcf6e8c0a23e75de71bf",
+      "sha256": "eb9ad1894926f0f807934ae52147cf9767ede0fbd01e9a1044dc4847caa9b73d",
       "why": "Lua 5.1.5 (MIT), built by the converter project"
     },
     "extern/lua-5.1.5/src/lua.h": {
-      "sha256": "89d45987a05c5804b25c142442ebc25eaf8c2ad9a5118427192cef4aaf3f447e",
+      "sha256": "470551c185f058360f8d0f9e5c54a29a3950f78af6a93f3fe9e4039a380c7b87",
       "why": "Lua 5.1.5 (MIT)"
     },
     "extern/lua-5.1.5/src/luac.c": {
-      "sha256": "4e6a74ecc981695d5fdab7864f5796341f673a359cd93b30f52a1b1b628fb0d9",
+      "sha256": "b22ad97edb37c2a4b117ef81489bfc6eee15d58d4476ea149abbef7aabf8773d",
       "why": "Lua 5.1.5 (MIT), built by the converter project"
     },
     "extern/lua-5.1.5/src/luaconf.h": {
-      "sha256": "9089edc87323fe43dbfbd85a3dd8b89a206f2d78181ad9878a3aef05c0e70354",
+      "sha256": "0410ff22f66c275ba8fcee1fa87a0749d26d7952ed30d3bc9161688b39775464",
       "why": "Lua 5.1.5 (MIT)"
     },
     "extern/lua-5.1.5/src/lualib.h": {
-      "sha256": "fdc28369da6fffb836b744b8a6d4b78d386e2b7348247f5cf3246b421d9f0439",
+      "sha256": "13f880e9dd997a0f7fd0b17ccd949c98f33e95bd120f084de66084e888217413",
       "why": "Lua 5.1.5 (MIT)"
     },
     "extern/lua-5.1.5/src/lundump.c": {
-      "sha256": "2c06f185645ee92dfe90ca1db477dafd14dfff3e940f2e965187bc2427737821",
+      "sha256": "55ccb55abde44e94e6c4d0bafc94f5870d2674d1944e9a81f6537d9ac92e8ebc",
       "why": "Lua 5.1.5 (MIT), built by the converter project"
     },
     "extern/lua-5.1.5/src/lundump.h": {
-      "sha256": "e34c2063b73b24e9a05a29a984ae1a9adf5c4463ab75850f3acee3b2ed2ebdd6",
+      "sha256": "9f3a2924d1585620993a70eea6cf3def34acb8322b2d9c3629bcdacc037edc64",
       "why": "Lua 5.1.5 (MIT)"
     },
     "extern/lua-5.1.5/src/lvm.c": {
-      "sha256": "5ff3c34eb70eb1c9e2e89edd28de5cb994475db7b894276d7dcae72423a23dc9",
+      "sha256": "ccd9cb0832328ae71c669cd5b579037f60cb0f0f8b4b2ee8912cac0b093c50c2",
       "why": "Lua 5.1.5 (MIT), built by the converter project"
     },
     "extern/lua-5.1.5/src/lvm.h": {
-      "sha256": "dde27a5ef887e8ec43518906f8a491c9ff1a91617c3c9035e8e0ea3eb5796a6a",
+      "sha256": "db4b79dc7f4e7656078aa527350fbf14b2fde5d136ccf1cb4f3dc397def5fb67",
       "why": "Lua 5.1.5 (MIT)"
     },
     "extern/lua-5.1.5/src/lzio.c": {
-      "sha256": "e0c2de4dc36d404a907b0a80506f6637acb00a7b17b6db10d74975f7b31e1972",
+      "sha256": "892bc24d898c19cbedceba419c68f910b99321c0b462be2c2c00b9d763563173",
       "why": "Lua 5.1.5 (MIT), built by the converter project"
     },
     "extern/lua-5.1.5/src/lzio.h": {
-      "sha256": "716d05b89824c09dbd7daf4ce31244131b4adceff19a46065a41fc0379b46aab",
+      "sha256": "0ec77d0179bf29c1ccab97028fed761944d5c21c02808e10cd7b5883b58b2ca6",
       "why": "Lua 5.1.5 (MIT)"
     },
     "extern/lua-5.1.5/src/print.c": {
-      "sha256": "a8a31a286c2b1e452a5463f8f0bfdd5e9d3b308de4cbf6e1202b5f94d27b0bc2",
+      "sha256": "3c3b1c1dd17896e428b9742614c90ec10776ced65813eb648f02dee649892f2f",
       "why": "Lua 5.1.5 (MIT), built by the converter project"
     },
     "extern/miniaudio.h": {
-      "sha256": "b468caf317dc32552a9bbdb8c4083bb3d9fa268f5fac502aeb2973e48579400b",
+      "sha256": "c029554572ae71a94b7825ef1ab9bd7e646344a79e2e852a03f8b18e428c1443",
       "why": "dependency of the converters"
     },
     "extern/nlohmann/json.hpp": {
-      "sha256": "853b2eb3bf7632c949f4a2dd6fb8a629c5ff25cc0059d29c7d21915dc719487f",
+      "sha256": "9bea4c8066ef4a1c206b2be5a36302f8926f7fdc6087af5d20b417d0cf103ea6",
       "why": "dependency of the converters"
     },
     "extern/stb_image_write.h": {
-      "sha256": "17f339e7582ff4d4d56e40b0e87d77eda8d8f8e62806278ddf8fcf0b8b3d9a84",
+      "sha256": "cbd5f0ad7a9cf4468affb36354a1d2338034f2c12473cf1a8e32053cb6914a05",
       "why": "dependency of the converters"
     },
     "include/addons/toc_parser.hpp": {
-      "sha256": "3e4ff3295d0f69839259ebfb8d7837fb9e44cf4f5a459ad5f0ebb563aa45d2ab",
+      "sha256": "145d9d49b731c30bc886b2b0822c0d937b12c6124aa1a9c88115c3dd42366c9c",
       "why": "dependency of the converters"
     },
     "include/audio/footstep_paths.hpp": {
-      "sha256": "468fbc01b7ee40a5a3c213cbecb47ca37aa7509e0e5f754b97abc3f95138eb1e",
+      "sha256": "f929783634ee6cd6a2c586a3ed8f9f2964c41898eb8c9253a1f26bf45374790b",
       "why": "dependency of the converters"
     },
     "include/audio/npc_voice_manager.hpp": {
-      "sha256": "438fa75aa84fbeb65c0ea94214b56cacce97add081403ac0b0d10c0f2854fd8f",
+      "sha256": "27d3742a6b73066b06f6922504a083773dc68661330542b9454bad0862d475fc",
       "why": "dependency of the converters"
     },
     "include/core/appearance_composer.hpp": {
-      "sha256": "5c39e194f2e44beb6fd534c9e60036a80d15a1455e480881535c384bdb8017cf",
+      "sha256": "ab5826ad8fad3a262b1595ca298ea0bac20a2a8902002805dfa04afb63494d61",
       "why": "dependency of the converters"
     },
     "include/core/character_paths.hpp": {
-      "sha256": "b2423501ead0c660177506c1def55fc8e59f7a001efe6156c7578e18b08c172d",
+      "sha256": "d8d10b1530404d77f3020d3ee5a9c584fa5c8b98f84b863c4cc05068a6a5e781",
       "why": "dependency of the converters"
     },
     "include/core/coordinates.hpp": {
-      "sha256": "f179aa6cd11e345f1629a2fc3432ef48e0b562dca47facc693178a4a9eb71ac5",
+      "sha256": "dd94bc540823798f2256fc5cbe3fb69acff41884e0eb362ee047948e4780c7e9",
       "why": "dependency of the converters"
     },
     "include/core/entity_spawner.hpp": {
-      "sha256": "3ad236b0f2f40375b6a8648b40e5b47271f6815736b9c5a90c396493d5daea93",
+      "sha256": "0c314f039ee976f6c4b206e602a305afd77697f9fde5e5471ced2bcbe6a70f0f",
       "why": "dependency of the converters"
     },
     "include/core/geoset_rules.hpp": {
@@ -349,155 +377,167 @@
       "why": "dependency of the converters"
     },
     "include/core/helm_visual.hpp": {
-      "sha256": "28945b2352e78f07659d60ae213e46c55e73bf6e70c522e9c7439050539ca67c",
+      "sha256": "e1b708af0083bc338dc329aba382f9a5f3e673cb6590901a946569ab64215f4b",
       "why": "dependency of the converters"
     },
     "include/core/local_time.hpp": {
-      "sha256": "51b6be998b460e7c83eb34ed595499f918dffcf46327067d9b5eb3d584ea6541",
+      "sha256": "258f75df3a415f3d5660b39925ce21290c0cd77508ba00cd506189ca08b4d330",
       "why": "dependency of the converters"
     },
     "include/core/log_privacy.hpp": {
-      "sha256": "03bd706d65cba24ec9b29bf9dfd5cd2123db7e69abe274ad1e237616508a5b69",
+      "sha256": "0a4f85b15a121ac3736d5c37993454afbecf20fd5ded5b1e1976b116c51c0382",
       "why": "dependency of the converters"
     },
     "include/core/logger.hpp": {
-      "sha256": "fe04565f3149d78db4d5ed8ee6dde66c3339944e6337983921f6af24d4279453",
+      "sha256": "a23961f1e2e0dbec531e92ccffd69601bd4da91a9f5bb6bcf7ad97d4458edc47",
       "why": "dependency of the converters"
     },
     "include/core/profiler.hpp": {
-      "sha256": "52c0fd5791a4de1ac78c1a10c712f50719230460a19b5754d7792aff5ccd258b",
+      "sha256": "4d018bdc9ac32f3e0e3ae421d50cef0dccb38d44cf5dbbba4a6c2a304543e848",
       "why": "dependency of the converters"
     },
     "include/game/character.hpp": {
-      "sha256": "8f166737dd3e33788421640190db84396803ac97a54098204d9e849fb8a2800e",
+      "sha256": "a044b1d212f777e5efbd4b404db0c81a51bfde7cffa508d1d444f30a31c7846f",
       "why": "dependency of the converters"
     },
     "include/game/entity.hpp": {
-      "sha256": "66865f2c6bd5cbba39aad1303c2d96f65d9c6453b2b07b18e79a676dda6bd6ea",
+      "sha256": "dac31a629ea99d5e3865b614a7a94c76cca7a25ec76e5b429e8d51a42ea5a90b",
       "why": "dependency of the converters"
     },
     "include/game/flat_field_map.hpp": {
-      "sha256": "d29926b2fb3825f7bbe38129868e22904bc12b4cd91adf212ca679dc3148155a",
+      "sha256": "0f4221bf45ea549f6807d7f35bd77fc6c235f2fd00438f6675f86135f06518ab",
       "why": "dependency of the converters"
     },
     "include/game/game_services.hpp": {
-      "sha256": "4f7b6c7c96400f67fd58b422b990e9727d6c70e887c526ca717dd0381d6e2f3f",
+      "sha256": "b242dea161c31e699958a32e023d5aa7e11402ccf4bcd3f8efc1e7e57e96ab3c",
       "why": "dependency of the converters"
     },
     "include/game/inventory.hpp": {
-      "sha256": "2f260fd373e1eaf6740797f73fe4c334b37302360d481e99b25db58354a2c3ab",
+      "sha256": "81e0eaee3683da062bcd3c1f07f4af816896184d1125b4b17c498ba888e2cd7d",
       "why": "dependency of the converters"
     },
     "include/game/json_table_scan.hpp": {
-      "sha256": "18c457a51cea591258828f25d44f2c8f00017a991a25145bc2af18a0a5f6c3c4",
+      "sha256": "be9877eb7b94183ae2270a0db4030d703c5a37db9cb5661218427e18baa74858",
       "why": "dependency of the converters"
     },
     "include/game/protocol_constants.hpp": {
-      "sha256": "735dbe728813632176dbe04bebc8e5b57540a777ae9a733cbb5923ee1dc7a9af",
+      "sha256": "5cdde1e89fbba2d09afd9851bf5c70d8c877a13429a666a9e6aa77014cc9ca22",
       "why": "dependency of the converters"
     },
     "include/game/spell_defines.hpp": {
-      "sha256": "5c3b7f76546cf99d6e09f35aa852ff82429f8c65a8e8156e7a7c50a941809e3b",
+      "sha256": "6637466f8a1b7657a65e8facefc148d742a3db6cae7d17c2a3c16caebd6bbd58",
       "why": "read by build_spells_pak.py at run time (the cast-failure reason names)"
     },
     "include/game/update_field_table.hpp": {
-      "sha256": "ccf9cb9ccecf385a59161e0612a859ab437d54cb1e18fb45ddbf049c2de868f4",
+      "sha256": "6a2a21c77fad9b85ee7c9c58da119b462bb6974e8a373ff9641190c9ad91ec6c",
       "why": "dependency of the converters"
     },
     "include/game/zone_manager.hpp": {
-      "sha256": "dd4de4b95b04fb8fe68a2c27db81c979066f804c491053fbc65b34f7961284ff",
+      "sha256": "f2d1e43190740f7121a85f7edbbf56d019c84b6c720dc17de2408a4baa9abb1b",
       "why": "dependency of the converters"
     },
     "include/math/spline.hpp": {
-      "sha256": "59ee1d6b0737398cb06dba98afcc3cf522dba02965e24e5f03e95513d558012d",
+      "sha256": "8c32ab90dd67ca5b51e663ada9956af6e3c67aacb280b5d8125cd526497856d2",
       "why": "dependency of the converters"
     },
     "include/pipeline/adt_alpha.hpp": {
-      "sha256": "677509ceac272ec9bc7c60b8450f0fc5ef17b57a86018ed6273318138f744c98",
+      "sha256": "c74b58238097db31ffa9246fdec896b87c42e45a09d8426947329a1e6a1ed08e",
       "why": "dependency of the converters"
     },
     "include/pipeline/adt_loader.hpp": {
-      "sha256": "e62babb427703e15271675e596e9c5c0aaf98244c2697cb596c17a739d79c9ba",
+      "sha256": "c198ea0eb2ceccfe5f405de8d968e5f7ad7a073f03bb377beecc1772243d6ef7",
       "why": "dependency of the converters"
     },
     "include/pipeline/asset_manager.hpp": {
-      "sha256": "7ba60d721179572a8e1fbfd4039852a507a5b554f761652cbd46c954ebddfd3f",
+      "sha256": "5533ac6538537a25ceb07a8dfb90e49c52afcc37074040d99df9e1ce0c152352",
       "why": "dependency of the converters"
     },
     "include/pipeline/asset_manifest.hpp": {
-      "sha256": "8e7f824272342702d353aa513a941b8061a873d2e86d853dcec11f235d7bfb65",
+      "sha256": "465cb6c6920a620fa6ec9defe6d0a37fd4cf3b8f19855fc3090a373f8e572344",
       "why": "dependency of the converters"
     },
     "include/pipeline/blp_loader.hpp": {
-      "sha256": "5185a3bae996f5ef5a849564500a5f4ed113f62349791f5b5da54f00d5e28552",
+      "sha256": "cfe542f4bcc1093893deed71988dad4f94f0d2781619003a9e1ce403dc63c617",
       "why": "dependency of the converters"
     },
     "include/pipeline/char_sections.hpp": {
-      "sha256": "58d5da42b6105b936eed1515f483e27cc5cbe2fa2c8207fb5fdeb954b5df3bb2",
+      "sha256": "f59ff73b16fc611c072a9b5fba52680d0aa4b0e67449218eb7342af94bd7cbb4",
       "why": "dependency of the converters"
     },
     "include/pipeline/dbc_layout.hpp": {
-      "sha256": "6e68612196ebacac3c59f2352c8d42f2a7e36fc0100601e062ec06285ce7c95f",
+      "sha256": "15f228f65d3283fb0972c430d4313e25ed8fa6b98a65c625a399abbe9f3e731b",
       "why": "dependency of the converters"
     },
     "include/pipeline/dbc_loader.hpp": {
-      "sha256": "d5b5c34b3ce7bf56e3252daf46006755c11e25a76f0c6b8ff119bf3fe435255a",
+      "sha256": "a92fb1864ccdebaca925086e708efbd8d2bab3637ab788deb56faeaf38f56fc5",
       "why": "dependency of the converters"
     },
     "include/pipeline/dxt_block.hpp": {
-      "sha256": "77136f929f1c66a70d23ef76e582ce9ec1a682d20902fc08ea81614b3ab198f6",
+      "sha256": "331c6f668d24dbfd4b970cee56f9d5313208cd2ca6fb166758b230ec473f85bc",
       "why": "dependency of the converters"
     },
     "include/pipeline/item_textures.hpp": {
-      "sha256": "f1979c2b090bbfe5ac53b2293ac3ff9569fb43f56efee546df07dda5cbf56562",
+      "sha256": "7bc93a58c887ba13c234a6a7570abe2d2fc399b0603a6db96e0d4594663158e4",
       "why": "dependency of the converters"
     },
     "include/pipeline/loose_file_reader.hpp": {
-      "sha256": "baab90e92accaf6999e2491ba06eb43b9ae8780690fa961cd5e7ca87a19ea73b",
+      "sha256": "f4792995e31a7812072980faf01d82874753b92ca9684e98fc4b172c37973d83",
       "why": "dependency of the converters"
     },
     "include/pipeline/m2_asset_loader.hpp": {
-      "sha256": "244d74ee70bcf06dc676adf126f9886a9f67daa35f1a07a382e40cb05d7f0ba0",
+      "sha256": "953e87189107deb4febbaf9c5997acced5e0672cd22cd557d9d28f82e0934a6b",
       "why": "dependency of the converters"
     },
     "include/pipeline/m2_color_track.hpp": {
-      "sha256": "4a8502054326ae2e334ba8584e0900e256526b2db505d72faddbc165972a7210",
+      "sha256": "884b3d1bce4fa9f684015462c947d7fa1efd0c4c85022eea6e40a875ddea211d",
       "why": "dependency of the converters"
     },
     "include/pipeline/m2_loader.hpp": {
-      "sha256": "e91a668d7f3295b928f3bde720eac08dc062e4857c26c7211b0119d4c5048692",
+      "sha256": "5687e179ab207829e7926c31361bd21e176997dc6adcb1af0406b06e4aaeb541",
       "why": "dependency of the converters"
     },
     "include/pipeline/terrain_mesh.hpp": {
-      "sha256": "b33a3a0f8c7e74a84065d09c9d23e9be5bb777ff9ac0229f7559ca32f0077043",
+      "sha256": "ea5a6bcf3d6eb13c1ab39cb77b07a4f92ad4e17e40538efefc2ee553fb4443a9",
       "why": "dependency of the converters"
     },
     "include/pipeline/wdt_loader.hpp": {
-      "sha256": "6b4755cd264ae339fa53569a20c7c4fbb5c1196b327302dbe6d06501a150c84a",
+      "sha256": "5539019457ac47e3d25fe06c29e7925100d3f13ec7f61e4772d8883c67696b46",
       "why": "dependency of the converters"
     },
     "include/pipeline/wmo_group_path.hpp": {
-      "sha256": "54adbaa0520404334e5505873a206a5a76751bf68a43c29a30fb42ad69123ca2",
+      "sha256": "9078581467303d5634156d5286284474055c8695ad8f928f1041e3d52ce102d7",
       "why": "dependency of the converters"
     },
     "include/pipeline/wmo_loader.hpp": {
-      "sha256": "d7bc65c1d6b6df6c40297431e15ae74a2a89b7c7b5f59e1e4dcafb11a9838841",
+      "sha256": "721db2f89ea0d7e99e4159e020d352af370055eacbc4e009b0b4b33630484941",
       "why": "dependency of the converters"
+    },
+    "include/platform/psp/psp_bigheap.hpp": {
+      "sha256": "003d4117c05240c634fc7c1d86cc025ad3931a760701c9f8dbc3e86e537fde71",
+      "why": "Tracked Kiln baker source or dependency"
+    },
+    "include/platform/psp/psp_config.hpp": {
+      "sha256": "13da9ce2a24d693ad02356f8250c03161489c37469f4e395fc4ab3d2f9a45920",
+      "why": "Tracked Kiln baker source or dependency"
     },
     "include/platform/psp/psp_display.hpp": {
       "sha256": "6562d1712e870429d705da444db0df20ad3926108ad7923e4f997a4ff164338e",
       "why": "included by include/rendering/psp/psp_sky_grid.hpp"
     },
     "include/platform/psp/psp_fd_budget.hpp": {
-      "sha256": "6c82ee453b6a0bb6f202168084f2416765a0f9ce10621cf3e08dc48ad320045d",
+      "sha256": "47bd539e96226948ffb1bcac169d156f09794582e4e744306708c688b1fa3f7e",
       "why": "included by include/platform/psp/psp_pak.hpp"
     },
     "include/platform/psp/psp_log.hpp": {
-      "sha256": "1f96c3d60ca981ecf125b609b33bb3afb327cc590cb423929f4f76ca141062d5",
+      "sha256": "62c10ec8c99f13b0a142053c78812a5e2b6e7d094247b82c9880648a92e8f149",
       "why": "dependency of the converters"
     },
+    "include/platform/psp/psp_npc_asset_loader.hpp": {
+      "sha256": "0b4af6546ba2684f50fe71023bb3f7dd2d59d62cd2eb5d6bc8bddb5940ffbbbd",
+      "why": "Tracked Kiln baker source or dependency"
+    },
     "include/platform/psp/psp_pak.hpp": {
-      "sha256": "56ac3fe22d5e5fa8fb8fc55383892657236e2fca7499566a4bcaa6fefb0ef27a",
+      "sha256": "9e9bd3311d6c1aadcc1eb6ed6c39b224b94171963bb59bc4d75c9316dee37355",
       "why": "dependency of the converters"
     },
     "include/platform/psp/psp_pak_index.hpp": {
@@ -505,51 +545,51 @@
       "why": "dependency of the converters"
     },
     "include/platform/psp/psp_texture.hpp": {
-      "sha256": "a8aceb5d0bdfb6d44d4ca0d61a97e10d9657439712d168643a695075f943ae9b",
+      "sha256": "3d578f2ca215d387c8e536f5e42d66410e32f310181130d24d34f8a0fc431b94",
       "why": "included by include/rendering/psp/psp_terrain.hpp"
     },
     "include/platform/psp/psp_vmath.hpp": {
-      "sha256": "e002421a5be069bb37c2c2227a01a9254690b788b252e8f6d64b5650afef8e1d",
+      "sha256": "b8523e7ad3e2c8096fc4f9117b776daf37f8213d57509fc313a135982c993f0e",
       "why": "dependency of the converters"
     },
     "include/rendering/animation/animation_ids.hpp": {
-      "sha256": "ed624efa62e5ccc33247798fd4dc9990d4feb1e1a97ef4ccdc52bbc78dd55544",
+      "sha256": "dcff7830308f2534da697949c0448985475afb1cbebb37b14970ea9c2a0673e5",
       "why": "dependency of the converters"
     },
     "include/rendering/animation/emote_registry.hpp": {
-      "sha256": "8973331d25b0b6d4013f4b12ba809b1d7ea53ebe47ce0a61dc9e883d737b7c2a",
+      "sha256": "c4cc2fc039f04c8ae448d70cb1734b1bf40306fef9f6f9a9254dc6d3236c4caa",
       "why": "dependency of the converters"
     },
     "include/rendering/animation/weapon_type.hpp": {
-      "sha256": "e4f50ac31459fc701c382efb277f775e1706cc5d4f121dfdaece17f4eeae5696",
+      "sha256": "3317c22ba522d58107cadf514e49499939e583009ef5993aad2dfb769863d965",
       "why": "dependency of the converters"
     },
     "include/rendering/light_band_block.hpp": {
-      "sha256": "2ca7af52a0218679b80b835d0d9b6bdbf3fa11f5c8599fd0307dec049f3d9ce7",
+      "sha256": "0c7a78e156f5a8b11b2fc3d0a4c03b9b171b53280c4ec2b607519157b59f6e6f",
       "why": "dependency of the converters"
     },
     "include/rendering/light_coords.hpp": {
-      "sha256": "89b9c7274f20c1f882b1b62dd47e525a578e2c051d90fe3416b41f25d92da1d3",
+      "sha256": "8881da1d5bcb0457550651a7cbaf0c44ad11480b9f79572178473885f8a7801d",
       "why": "dependency of the converters"
     },
     "include/rendering/light_headroom.hpp": {
-      "sha256": "23b48c8c451a252e3cb4c8bdceaaac799d4980626cc5014ea7ae2406848b8ade",
+      "sha256": "94b1b1116340c279db0fcc57d267685c2a3091b7c04ca2437f1f31b73a39a3ff",
       "why": "dependency of the converters"
     },
     "include/rendering/light_volume_order.hpp": {
-      "sha256": "5ca010ddb1d2cd349d7633f456495e165577feefa67221feea45fe6648c98071",
+      "sha256": "f4ce407983cd95ec828fd59c505c2ada8b5e220c297713d9eef80dfb997fc135",
       "why": "dependency of the converters"
     },
     "include/rendering/lighting_manager.hpp": {
-      "sha256": "e02f292c7bd26b3f42ace8eaddc0599f507b3e2cdad50039bc1d611af15c9e97",
+      "sha256": "fb9b926f450fdb5e12cbd2b80b7f78a0327255fd7d980734485dfa87c3193221",
       "why": "dependency of the converters"
     },
     "include/rendering/m2_model_classifier.hpp": {
-      "sha256": "099260a8dc5076f4c28dc555b1f9bfdfa5fe1bcd21948338be69db4317e866a6",
+      "sha256": "7197b4f4fc058d96b044bc265246f345fe76684f94168e27567310db5c622403",
       "why": "dependency of the converters"
     },
     "include/rendering/m2_track_sampler.hpp": {
-      "sha256": "cf1d44198d2066358f42ba392c02d7a78f6bef0ab87e85e27fde94d846d4aee7",
+      "sha256": "3334646a559fd3a771447e9cd09e43ba12d3e543ce1230892983ee492e2bb3b6",
       "why": "dependency of the converters"
     },
     "include/rendering/psp/psp_audio_format.hpp": {
@@ -561,51 +601,63 @@
       "why": "dependency of the converters"
     },
     "include/rendering/psp/psp_bigwmo_vis.hpp": {
-      "sha256": "ca16ea7b4023e66b76be8a87a8b5f63ce12623ef660e6cd2c685b2dd77770c8d",
+      "sha256": "56b4372b3193399e7751f1a202032da85b33ae533f79332a58c1ee8d6262b4a9",
       "why": "dependency of the converters"
     },
     "include/rendering/psp/psp_body_rules.hpp": {
-      "sha256": "0aa827244d1d24c8927b6e21b5f54e0ca11d2c2bf2c9e0ed899d67e051887264",
+      "sha256": "98f98dac83eda120126506624c87d741fb7027765b5c6e722d6951b1953af382",
       "why": "dependency of the converters"
     },
     "include/rendering/psp/psp_dbc_format.hpp": {
-      "sha256": "5e31a0989da932c8e68854b4116f8d397436076bde5d123466f35fdbddc356e5",
+      "sha256": "3b7439ae1a8bb76eab201208eb786979e2cbfbe0c9d3522df1daa1d7f1b97abc",
       "why": "dependency of the converters"
     },
     "include/rendering/psp/psp_emblem_format.hpp": {
-      "sha256": "7bc4cc0b2a03447f32366288db0f46acf648a7ff899c5a64e924796c9af9e53b",
+      "sha256": "6f0819a36818c033201c4006c69a21a5f01a8bd0ee7e329edff9389158ffe47f",
       "why": "dependency of the converters"
     },
     "include/rendering/psp/psp_emote_text.hpp": {
-      "sha256": "0b394189a2b27e95b94f1500b7bd9814cf3dab3a80ce32e7aadf02de75808395",
+      "sha256": "9d938f8ac09bb705ab75146194b42d898b88c7a54fb750673fad8c57f2d2d018",
       "why": "dependency of the converters"
     },
     "include/rendering/psp/psp_equipment.hpp": {
-      "sha256": "e14971f7b8c2cc7320bd427eb0851129cc94401792ea0aceb246f67ff683cb51",
+      "sha256": "7d44f87a9f79e6117a98b594d5b90539dac73d76c0ffc031670d747d39d27b4f",
       "why": "dependency of the converters"
     },
+    "include/rendering/psp/psp_fishing_visual.hpp": {
+      "sha256": "60beba33fa2021241506772db94a38141711d56cce855ba1a1ec8727c74c1286",
+      "why": "Full-screen glow removal, server-owned inn resting and fishing visuals/regressions"
+    },
+    "include/rendering/psp/psp_fog_policy.hpp": {
+      "sha256": "8b021cb634b45255c084b586b26373cc9165b32070cccc5e074f27b79b8e6f3e",
+      "why": "Tracked Kiln baker source or dependency"
+    },
     "include/rendering/psp/psp_gameobject_format.hpp": {
-      "sha256": "4c6fb66db6e49b32e02deb53a9381d15ff3643faa9f8ad74a56b927213e37ce0",
+      "sha256": "c93828a072cef1b412fb5294cbd42b49689d201d3a80823cc9703fcd09ac4c4f",
       "why": "dependency of the converters"
     },
     "include/rendering/psp/psp_ge_limits.hpp": {
-      "sha256": "3daebe01d0098d26932476b8726134deaf6057719437fffbb37fd2431ceb58b5",
+      "sha256": "dbba9da6a5fa448be7a8fa7fff84d9edf5783a118b642455b554feec92aad2f3",
       "why": "dependency of the converters"
     },
     "include/rendering/psp/psp_impostor_math.hpp": {
-      "sha256": "476d05f83bcff0f17a0cea329372826cf1b6bf6616a666f90f5e76e35b4521a7",
+      "sha256": "2f419f20079745cbe9094825a41e5552028ed1c5b44a896fd69cf6ea317b7a49",
       "why": "dependency of the converters"
     },
     "include/rendering/psp/psp_item_format.hpp": {
-      "sha256": "b9444a5db1a5b46c39eecfe1a42976a7012d806da0df3ce320981f4e8124a714",
+      "sha256": "30a13e02d72ace5179594ff8c0df68cf3b8d8880c9f4c2015b195dd6802d60c6",
       "why": "dependency of the converters"
     },
+    "include/rendering/psp/psp_item_lookup_cache.hpp": {
+      "sha256": "e66730e7e3c627954c2d6270de55ef51318c4a4f6b79276ff8239f1d4b4ea6de",
+      "why": "Tracked Kiln baker source or dependency"
+    },
     "include/rendering/psp/psp_item_npc_race.hpp": {
-      "sha256": "8bfc8b39292f92e4b26a25e6465c643927424de082dedd53952fb42053f5c467",
+      "sha256": "722bc069735e524da0dff75f4f9dc4517d356bff630afac89821204bdb0bd73d",
       "why": "dependency of the converters"
     },
     "include/rendering/psp/psp_light_format.hpp": {
-      "sha256": "f30d4805c4fa467d097aaf56fa1bda3032bfd232569ea550048e397b0f8be35f",
+      "sha256": "defdb48f29b182172da6c4826092b9547290e84c76934ea420a7bb65d105ad8c",
       "why": "dependency of the converters"
     },
     "include/rendering/psp/psp_lighting.hpp": {
@@ -617,35 +669,43 @@
       "why": "included by include/rendering/psp/psp_particles_l3.hpp"
     },
     "include/rendering/psp/psp_map_format.hpp": {
-      "sha256": "2c9a7b9ac93cd0f4bb2b0499a063f94821d097bb19900528219b94c1f182560d",
+      "sha256": "8e223a8fe0f31ab8d825345f16097c18a6e981d6aa2cac80fd34132c73bd6e9e",
       "why": "dependency of the converters"
     },
+    "include/rendering/psp/psp_marker_visibility.hpp": {
+      "sha256": "cac8a5dde3c939ba98c3106cfca39325d61cee167b9d3ff376f7596cf200b462",
+      "why": "Bounded world-marker wall visibility cache."
+    },
     "include/rendering/psp/psp_minimap_format.hpp": {
-      "sha256": "f30c4cc562dc37d81b747b17316e6c99882aac58a4d7c15e5bf0db616eae295a",
+      "sha256": "30cbad0fa83e2e15b2f3c42e5a34530bd952376e58371e5aca77a05b720a3b99",
       "why": "dependency of the converters"
     },
     "include/rendering/psp/psp_model_format.hpp": {
       "sha256": "ea924e38c906a0cc3e8b14c2d26f4180092f8095403c0d2dffe838e1a5340fc5",
       "why": "dependency of the converters"
     },
+    "include/rendering/psp/psp_model_instance.hpp": {
+      "sha256": "3302256ba8973d31d953f55bd95cf9c78c1fab5d8aa3f8af8b137dbe7110c38e",
+      "why": "Sparse collision transforms shared by the PSP model renderer."
+    },
     "include/rendering/psp/psp_particle_format.hpp": {
-      "sha256": "4e7ef347c01bd3cf9e0ab1e29ea6c073eb44a2417eb422726d2c589232a63f96",
+      "sha256": "f463bfc4db63dc67d402c64764fa0e1abd7da50d9822302f74c6b480503f384e",
       "why": "dependency of the converters"
     },
     "include/rendering/psp/psp_particle_sim.hpp": {
-      "sha256": "5198827ef8c75f9aa9ef2d0e3f053d126730e4cee89786b64496abb9b4d8ba24",
+      "sha256": "65b8e1eab62bc97c429c18a1cd6cb3e3bef3e2af3e129e1e75d7ce22fab52137",
       "why": "dependency of the converters"
     },
     "include/rendering/psp/psp_particles_l3.hpp": {
-      "sha256": "56e8c65978e3e7ff049fffa817b4e0815e36af43a5e57f3931a06f8e175e6781",
+      "sha256": "352c8b445f43141722e6f3e348c771dac666a619dfe959e598a1dfbb00121d04",
       "why": "included by tools/psp/converter/ptc_clean_reference.hpp"
     },
     "include/rendering/psp/psp_skeleton.hpp": {
-      "sha256": "002d5d68735c81744daf8892e25a8dd15f78e7a2001a41111854c5fa7e4f6c79",
+      "sha256": "4e0fb3cf5655f5e497d4f577b27a96e989f22bfd778ce978c9f61ab17c13d767",
       "why": "dependency of the converters"
     },
     "include/rendering/psp/psp_sky_grid.hpp": {
-      "sha256": "9579551805ac2c7f104a8cd5a0bf1ec56302de3f9408c00f717e3aa84c96c631",
+      "sha256": "ff7edc562e8152cbe3bf714f6916b34f71fb93efbfbca0350b7d3a1f87968386",
       "why": "included by include/rendering/psp/psp_lighting_ge.hpp"
     },
     "include/rendering/psp/psp_sound_format.hpp": {
@@ -661,155 +721,175 @@
       "why": "included by include/rendering/psp/psp_particles_l3.hpp"
     },
     "include/rendering/psp/psp_terrain_pool.hpp": {
-      "sha256": "d7e962afd44d96aac604b01564e40a9d19b6b26abf51c85de90d57dbdba4cda3",
+      "sha256": "3d8817e25624dfd775d39d54d377d04bf78b9abdee573c3ce6488f3b6cc5221d",
       "why": "included by include/rendering/psp/psp_terrain.hpp"
     },
     "include/rendering/psp/psp_terrain_window.hpp": {
-      "sha256": "9f3c32fa2498f271b95dd44988ca7f22b226420e719e1f87e10da066b4efa070",
+      "sha256": "fb66aae0e4cccc1b41f74441defde3aa0aa27678175bf463216a8439093c33e8",
       "why": "included by include/rendering/psp/psp_terrain.hpp"
     },
     "include/rendering/psp/psp_transport_format.hpp": {
-      "sha256": "c1bf5ab7c176b677b343416ceaf48a0c700db3d29dc2ba4cb555d5b9f0b8e8fc",
+      "sha256": "86fcecf1fc162109d5e64712b6ab3447c93df26022aba748f47d837ae62fe0af",
       "why": "dependency of the converters"
     },
     "include/rendering/psp/psp_water_format.hpp": {
-      "sha256": "62eb177f033976f72eab185c87605999ecab912adaf6279fcdded893a9240883",
+      "sha256": "dc6625372069b11093e6962f77b4c9e95f0b4b63350855e128be547f8889b09d",
       "why": "terrain water rendering: WSRF v2 liquid masks/heights and all-map conversion"
     },
+    "include/rendering/psp/psp_wmo_batch_cache.hpp": {
+      "sha256": "7ca2ada46a81ca7add8d2a19988eabb88186de761ff8dbaceb478a4fa7c3dd7c",
+      "why": "Bounded building draw cache, nearest-first camera collision and reference regressions"
+    },
+    "include/rendering/psp/psp_wmo_landmarks.hpp": {
+      "sha256": "0c713957f9c2407271a9565ec86736e67eb3d3d536204f2e55e57c5c4998b144",
+      "why": "Bounded Stormwind hero statue landmarks, metadata repair and regression tests"
+    },
+    "include/rendering/psp/psp_world_decoration.hpp": {
+      "sha256": "f993b9d412ec0a740f0f5819a8d453efe3fc2520aa5219a755441c0609198d42",
+      "why": "Reject legacy ground decoration and bound streaming readiness polling."
+    },
     "include/rendering/psp/psp_worldmap_view.hpp": {
-      "sha256": "db6df5dc31e36293403840190b5a4399b5aeebc7d9a54e1261d661ef8298b36f",
+      "sha256": "cfa85f5e2efd576e169a39fa5eea3857515b6597fb5b5333e0f290072617ac19",
       "why": "dependency of the converters"
     },
     "include/rendering/water_mask.hpp": {
-      "sha256": "c9cb142d85c9ab5c2c17fe12cdc81497cba065b9834d9fc617928e8d5e0a4e86",
+      "sha256": "e5a0a103d38c743261560a3a4b1d5531a6d589ab0ed64b58db763acf85167713",
       "why": "dependency of the converters"
     },
     "include/rendering/world_map/coordinate_projection.hpp": {
-      "sha256": "176fe22e11c9c1d92b31897789779b8440ab3e17e8c5378fab98e8c6502dd4dd",
+      "sha256": "80d6fbec37f7087db110a00e4e667825f42281bc79bb54ac6ddc7c578e25a584",
       "why": "dependency of the converters"
     },
     "include/rendering/world_map/exploration_state.hpp": {
-      "sha256": "9b7c465ef9dbe78d2bc3c567ef858daedea025c5d8433da992349440f9ac0328",
+      "sha256": "e45b2092cc0c1ec74a802bdfab1c674e95adfdaec352da9e2d4ead3ccef1d5b9",
       "why": "dependency of the converters"
     },
     "include/rendering/world_map/world_map_types.hpp": {
-      "sha256": "aafcc40494c0dfd075f9738f80afbbd0955843a57f3ae7bba74d26d9d9b93519",
+      "sha256": "f556e94f0befbed3c7d751fef2a8ab64c498d453bab7314dc6bb3a59dc53f0b3",
       "why": "dependency of the converters"
     },
     "include/ui/minimap_projection.hpp": {
-      "sha256": "9ac712b4c4747dc0588113c5e74ecf5e8fa334000e41b90672d14b6001495501",
+      "sha256": "4daf7c9d43079b72d88e156ea6be50fd35aff3bba20c445d22d19b37c549c896",
       "why": "dependency of the converters"
     },
     "include/ui/psp/fx_format.hpp": {
-      "sha256": "187c065f2d13941991d84baae6faabd09a89749ae25ab713fa8bf46f2ebca226",
+      "sha256": "56c8f762916f0185a4bb047643b39c82aad65537c78328847854d944f6d2c0f2",
       "why": "dependency of the converters"
+    },
+    "include/ui/psp/ui_graphics_presets.hpp": {
+      "sha256": "821d4e2c94a28ecccff8411d3bab1ef77d8a954cd9a73488669368f6eb7c72b2",
+      "why": "graphics preset policy, Adaptive locking and Custom transitions"
+    },
+    "include/ui/psp/ui_settings_layout.hpp": {
+      "sha256": "6c4bfe7e94d85b9f212755d066fe2cda9e31ee180f2147d278e952d192592fff",
+      "why": "Focus-following layout for the combined PSP Graphics category."
     },
     "include/ui/psp/ui_world_sound_paths.hpp": {
       "sha256": "7f932388f1e37721d4d30301e768c97baac176f89fdd5d3144af2a77951bc8cf",
       "why": "dependency of the converters"
     },
     "include/ui/xml_parser.hpp": {
-      "sha256": "10e9c2464052b3a38b89df8072378622bd4fe68186385c0f73005d2304991b00",
+      "sha256": "c75ad737f44795d4052cd2c9daf492290393cf2b2dd81eb0cccb84bc0e5523f8",
       "why": "dependency of the converters"
     },
     "src/addons/toc_parser.cpp": {
-      "sha256": "c03e5c055462fbb5676c93fa94dcd9f8eca7d822f0d966b217becdd9c2b8c36e",
+      "sha256": "431f5559a9f1f511aeb6ea79a078f6aaad9efb477b5f3a5db3cc0babd2f97ba4",
       "why": "dependency of the converters"
     },
     "src/core/appearance_composer.cpp": {
-      "sha256": "6d3381eee9c90286662bed3e01692b67a4c7b64842820fc3ec1f352254796f5d",
+      "sha256": "1dee528cec7d4e15ce4e815f88fd0fdf6f6865716045c15433568375c5104a9a",
       "why": "dependency of the converters"
     },
     "src/core/entity_spawner.cpp": {
-      "sha256": "c2d41deed5460531bdd47f27cf171d30e3093b002466dcb46d102f235f4c1e14",
+      "sha256": "a82479281ca04cc1c64f14c22613d8204128f192280d8631b9d095c54254d1b0",
       "why": "dependency of the converters"
     },
     "src/core/entity_spawner_player.cpp": {
-      "sha256": "1093e44826df26ef725a2d0690d033d354ec7abd5c66f60fddb1d5f0126317df",
+      "sha256": "6b5b633d39f87f512bf30b59cb9f43c5dcf42681846956eb79833030b49ad21a",
       "why": "dependency of the converters"
     },
     "src/core/helm_visual.cpp": {
-      "sha256": "f3fc6d3754a12f25ad779f1b067d6dfed3deb61204b490123ff01936ac61f198",
+      "sha256": "eb67dd9a4c32ee81fd5df038044c6359aea91449574cf73ea0b6ab6edefdb2f6",
       "why": "dependency of the converters"
     },
     "src/core/logger.cpp": {
-      "sha256": "f15e76a90f97e0a5eca350645f24367fa0d94c64a9414f8086814d297d0acf92",
+      "sha256": "fe55463968873680fddf4e1078d0e78a79cf7fd4b202eacb267bc92e22ec6de6",
       "why": "dependency of the converters"
     },
     "src/game/character.cpp": {
-      "sha256": "46e6ddff394b81d6b6191e16a2f66bf1f9767cf69885be83e8a5213d23be8af6",
+      "sha256": "b9bbb0b28383e03dec47c19677648248d1194a2eed4171b5038d39c32cc60cd1",
       "why": "dependency of the converters"
     },
     "src/game/entity.cpp": {
-      "sha256": "931fb93819f3897ba492b7faa1daae89412a7c6851370c27631a414ef57dce20",
+      "sha256": "73bdd06ec869c3ce9ed2059f6ed5a482bee959e1405700cb7e815ba6bdf1a605",
       "why": "dependency of the converters"
     },
     "src/game/inventory.cpp": {
-      "sha256": "92a4af5c7459cd460ba4deeced7f79a820735f8fe6cae21eeb5f3945f3baaa2d",
+      "sha256": "6cfecf8b6ccf7d2f2a5e48458059cab208f9af52a45b5931047c670ca2e270a2",
       "why": "dependency of the converters"
     },
     "src/game/update_field_table.cpp": {
-      "sha256": "3e71ea272d4bfe92b24fd39343bf39df1c8669bdf5109a3f8594fd703d8a9e21",
+      "sha256": "21c33b425585944a80e506d6c5394109f110e92d761d5c6df583863111eac97b",
       "why": "dependency of the converters"
     },
     "src/game/zone_manager.cpp": {
-      "sha256": "adb265cc796d5ce99cfe3ddf6e3a15bb474a02a1f9295be11566151f679c41c6",
+      "sha256": "6ff86b93d451e1328fd42681e7272a55a0054ee0b620bb2e726b7a9bc37957c7",
       "why": "dependency of the converters"
     },
     "src/pipeline/adt_alpha.cpp": {
-      "sha256": "439fe51c940b3fa1c3e476e3dbbe96a166b25fe6490598fbd99dbedf2d0f3eea",
+      "sha256": "b0a38b5fb46446a8583289e40c7068ee4b8379a388aa16c83bd0dfeaab79392b",
       "why": "dependency of the converters"
     },
     "src/pipeline/adt_loader.cpp": {
-      "sha256": "1c11e3f30fef8e4aea962aa3f10fdbee1f8023e251742ed34a6ade50c338978d",
+      "sha256": "ebcdabc749d20329e00de130007fea6cfc91fc41f5587ad28a822def110960e3",
       "why": "dependency of the converters"
     },
     "src/pipeline/blp_loader.cpp": {
-      "sha256": "c263950fbfb6769324a8f98d9c85373fc1947e3673c396459de65156392e0f15",
+      "sha256": "952708f7f559b654794d9201220c978bd0ac5f792eccf9129cb50f16d2ec3a40",
       "why": "dependency of the converters"
     },
     "src/pipeline/char_sections.cpp": {
-      "sha256": "3dbdf8d41d15e0b7eec54585ce1a306640071d47593b99c3d528d4f6d4120e96",
+      "sha256": "608cb986a5443d49cf4f551fb3379ad3e9cb56b318f7a23d880d57316abb4208",
       "why": "dependency of the converters"
     },
     "src/pipeline/dbc_layout.cpp": {
-      "sha256": "6238e91441f516666306aaf37d3547caea0c1afff2cf91103a94c8e9abf259cd",
+      "sha256": "54c33870a1168dba966bdcd20ad5132ac5486103532c95d0a5891d7031ff2549",
       "why": "dependency of the converters"
     },
     "src/pipeline/dbc_loader.cpp": {
-      "sha256": "916ad801400014aa58c1c319cc086657295022a50a6590a5be70b0ed7787652c",
+      "sha256": "a243dbea46867b7f48c5c3c4a9f599595ab30f52133f961ed95f8ae1e05faa80",
       "why": "dependency of the converters"
     },
     "src/pipeline/item_textures.cpp": {
-      "sha256": "2423350b0f278dc255ef2f14c7dcf678afe1ccda48c22d3ad4166b1a912bd32e",
+      "sha256": "e4268fa8641693b1d6cd94ea9efa9907c3bc41ee80ab4853228a50320ee50261",
       "why": "dependency of the converters"
     },
     "src/pipeline/m2_asset_loader.cpp": {
-      "sha256": "ea71215966232edca25acc3b114103e5abfb11ec9e09bebb8bede484adbc4d89",
+      "sha256": "46e66bc4ff67c363150ddee13b40e8ed528aee0655bfe3ad2b38bd5924398d1e",
       "why": "dependency of the converters"
     },
     "src/pipeline/m2_loader.cpp": {
-      "sha256": "fd712ec6ca82558ec56cb9a256180f4a271b13bd8dbb9da9c47e99bab0ec86eb",
+      "sha256": "ddf6eef59b5d3b3efb3786b4d2a0cc64fd38b8719e69ab9ff619d88084d67bfb",
       "why": "dependency of the converters"
     },
     "src/pipeline/terrain_mesh.cpp": {
-      "sha256": "4be34710312e959f3fcdd547bb25f1fc328dd495d6e2a69119b5e9622efa57ce",
+      "sha256": "c808785fd0575ac715d560be2e9be24177e15eeeca970695f9c3bf6e279f01b3",
       "why": "dependency of the converters"
     },
     "src/pipeline/wdt_loader.cpp": {
-      "sha256": "070738890115cb2ff51456819323c99b6c86c01775b45e9643da8d0eed4d13e4",
+      "sha256": "beff65150f6445e45c761c3e10961007afaf396b1c016e6b4973e57f62c9972a",
       "why": "dependency of the converters"
     },
     "src/pipeline/wmo_loader.cpp": {
-      "sha256": "f90b60f74432718af0963ab16804188d956caf9a108ab49097e679911102f26a",
+      "sha256": "c5e227acc1f955c7a8f78f79871f43b98bf44e6235c57b95c05c2f5c6adee8ed",
       "why": "dependency of the converters"
     },
     "src/platform/psp/lua/luaconf.h": {
-      "sha256": "76e32d23efff97a48985a2d3cba687ac2ca6f7175e42a4444083e46b8c5201b6",
+      "sha256": "730f502e8797c8e4baa3be7f88cca3a74b8d03a13fea19fde40b1ccc2c4c4aeb",
       "why": "dependency of the converters"
     },
     "src/rendering/lighting_manager.cpp": {
-      "sha256": "45e3c41828ed6b5407c2a9ea182bc216342f5c10b51363c8f89e5d4598f4c66d",
+      "sha256": "3f4a740ede7e637aad00319bf6c2553ff9dfb34b5288dba4fcdf6d6c464777f5",
       "why": "dependency of the converters"
     },
     "src/rendering/m2_model_classifier.cpp": {
@@ -817,11 +897,11 @@
       "why": "dependency of the converters"
     },
     "src/rendering/psp/psp_equipment.cpp": {
-      "sha256": "dc4e32beafb7a9eb610d2339e2baae353f5fc490e8190c2881fff7f1e6460d46",
+      "sha256": "d9cb029b3ba4fa8958e467a52851615cea2883af1e337c3a6338d3d63ab9bdd1",
       "why": "dependency of the converters"
     },
     "src/rendering/psp/psp_equipment_dress.cpp": {
-      "sha256": "c371c1413976893dba1dfd70d2468b0dc386741a783fe9d5bc423667db0a5b46",
+      "sha256": "b6d9c62ea92dde2d8d4b7a2da7621ae970f6ced3b133be2edd9f0fe56d2b43c4",
       "why": "dependency of the converters"
     },
     "src/rendering/psp/psp_lighting.cpp": {
@@ -829,36 +909,84 @@
       "why": "dependency of the converters"
     },
     "src/rendering/psp/psp_particle_sim.cpp": {
-      "sha256": "4197bcf87a73ef7fc3d179d6f1469994cdf5c02e0ab5824d2ab9b80e20d6284f",
+      "sha256": "4827655fb3505aa4651be885ca12f9856d870cd3dab79999c3e514ca048115b2",
       "why": "dependency of the converters"
     },
     "src/rendering/psp/psp_particles_l3.cpp": {
-      "sha256": "df52600e5d7584c629daa55216bf3db321e73add2fea4d0619a720cbee3492e9",
+      "sha256": "cb20a30580644b4c05ca3a35b26b85984a616b4157dbaa543df34f38543e3bec",
       "why": "dependency of the converters"
     },
     "src/rendering/psp/psp_weapon_placement.cpp": {
-      "sha256": "23a99f33aaebf12e395e21e720eddf3b8c0c8cc4e3703708c3df41cdf5657bda",
+      "sha256": "fb063a2786dbe222e1b357b77b3efd0223c383483c17d6531c3153ae5f64e35f",
       "why": "dependency of the converters"
     },
     "src/rendering/world_map/coordinate_projection.cpp": {
-      "sha256": "0f46d8e315db34624b6049ba1b57704dc9f6755d8bce8911d027d5edea6c900a",
+      "sha256": "4816f63a2842bad6552dcf8fc59e2d80e5e856a801c475f32fdf5effd24e3d12",
       "why": "dependency of the converters"
     },
     "src/rendering/world_map/exploration_state.cpp": {
-      "sha256": "afa1a3722dedff0e723a7c767c159ba6fcff396407c580dade19a23827b75825",
+      "sha256": "221416116cf9c58529343c5be77688b44f69559cae130afa4e721dca2d645f28",
       "why": "dependency of the converters"
     },
     "src/rendering/zone_ambience.cpp": {
-      "sha256": "606113bf87daf22d500fc1dcc7404935eabb44004cd8870ac847034afe955a90",
+      "sha256": "5f4ec3c1235d385a6bf94e61d2d520a2a001d7f8d9f663452d1316eacb5b8a93",
       "why": "dependency of the converters"
     },
     "src/ui/game_screen_hud.cpp": {
-      "sha256": "50893264c060993451dcbfa770cb622b5699f268824d33b08dc06a6325a472ac",
+      "sha256": "e0e834b311b642324d6a4cfea643cf252b4a3ac561d2cd224c8618d0abd200a0",
       "why": "dependency of the converters"
     },
     "src/ui/xml_parser.cpp": {
-      "sha256": "d061dd0d2b45ec9ef33451562f34d56106d6e859938c70e1d2cd7e672b2cee43",
+      "sha256": "60e1ccf01ddfb850fe4281560dcb5bc2ceeef06bbfa5e828ef2b269da5e873dd",
       "why": "dependency of the converters"
+    },
+    "tests/test_psp_camera_ray.cpp": {
+      "sha256": "d2f9b785f636ae4b63c4086284f2aaa01bc1974f16ff7d0446470aa7dae2f57c",
+      "why": "Bounded building draw cache, nearest-first camera collision and reference regressions"
+    },
+    "tests/test_psp_cast_sustain.py": {
+      "sha256": "bad59a011f646ed726d4ef201621db541326bde5f88cc83b10c2af1bb63eef89",
+      "why": "host regression for sustained caster audio, cancellation and PCM lifetime"
+    },
+    "tests/test_psp_death_audio.py": {
+      "sha256": "cadf3ac6fe570ec973054460c856dcdeda21362a755f172308f8258b16af0885",
+      "why": "Fishing event visuals, local Charge spline ownership, death audio and host regressions"
+    },
+    "tests/test_psp_fishing.cpp": {
+      "sha256": "f081ef6a6914fd9052bb4168b6a44c651084dd1d6ca4d569491ef10c1d76e807",
+      "why": "Full-screen glow removal, server-owned inn resting and fishing visuals/regressions"
+    },
+    "tests/test_psp_fishing_owner.py": {
+      "sha256": "73fdf89e0c95cdff7e38f6dba5c5af754763c7503fc3b8cf54580bccb7b8db66",
+      "why": "Full-screen glow removal, server-owned inn resting and fishing visuals/regressions"
+    },
+    "tests/test_psp_fishing_splash.py": {
+      "sha256": "b6c8d9d3ada6bd4d933868012010ae9f26f29eae2c2ca19495b0c50fed9602eb",
+      "why": "Fishing event visuals, local Charge spline ownership, death audio and host regressions"
+    },
+    "tests/test_psp_floor_support.cpp": {
+      "sha256": "b1ff23596e8dfd078d9ecc44061f74359480be224b0d293855163ea24670858d",
+      "why": "footprint support at collision seams, without filling ledges"
+    },
+    "tests/test_psp_graphics_presets.py": {
+      "sha256": "33ec088144f41f5405ebc04b906e24ef37adc19911b170a12431d6a707bdae6d",
+      "why": "production preset/edit/locking/config regression tests"
+    },
+    "tests/test_psp_stream_retry.py": {
+      "sha256": "4812382186d7c10e78e1563f78ff480200bde9b6f9db157455f82ecfc82f00d4",
+      "why": "stationary initial-building retry and safe teleport landing regression"
+    },
+    "tests/test_psp_wmo_batch.cpp": {
+      "sha256": "1a87d77eb53c773d7c28d8f8e667499606af6e01a5497fa764afbcb7e81fa655",
+      "why": "Bounded building draw cache, nearest-first camera collision and reference regressions"
+    },
+    "tests/test_psp_wmo_landmarks.cpp": {
+      "sha256": "5fbdbdf398534d4659ffda59da876e107795d41f3081e30505dcf5e9e25e7be8",
+      "why": "Bounded Stormwind hero statue landmarks, metadata repair and regression tests"
+    },
+    "tests/test_psp_wmo_landmarks.py": {
+      "sha256": "bb81776abcd85e4657d9c24112e57a543bde361caae13647ef556c4fb0c9b9da",
+      "why": "Bounded Stormwind hero statue landmarks, metadata repair and regression tests"
     },
     "tools/psp/art/input_prompts/License.txt": {
       "sha256": "12e0cc92d3d4da782dfd5e9079cd0f141b0ef4102ba03482255ac5d5320a5184",
@@ -1157,7 +1285,7 @@
       "why": "converter headers"
     },
     "tools/psp/converter/psp_audio_conv.cpp": {
-      "sha256": "bf8ec81c1b3d68d2102a279fcfffdb6caad90ce23da3a5ae296b2c643caddfad",
+      "sha256": "caf7ec34e3d8e790588ea18da842291365324e3bd8b9df6108288c5b32ec6480",
       "why": "converter sources"
     },
     "tools/psp/converter/psp_char_conv.cpp": {
@@ -1244,6 +1372,10 @@
       "sha256": "aeb0af19368f2b8e68cacbcd262f1e8e8f24f88831b2de4cf49ba099d1164bef",
       "why": "terrain water rendering: WSRF v2 liquid masks/heights and all-map conversion"
     },
+    "tools/psp/converter/texture_alpha_policy.hpp": {
+      "sha256": "a13b8da1c2b2f5075b05e2b114fcc1c7640c9c18b6a1a7aca298ba1b1f8d2625",
+      "why": "PSP converters: material alpha and authored NPC voices"
+    },
     "tools/psp/converter/transport_bake.hpp": {
       "sha256": "9d181c84288b0765834b8c2ee92a506563adf39e5bc411cadd3f73ba3318f0e7",
       "why": "converter headers"
@@ -1260,143 +1392,23 @@
       "sha256": "489feb9fca81f0a5bd3a847407ac6b8f5a392d522dfa7738de284e2c0780d367",
       "why": "the port's dungeon and raid list (read from the client's map table)"
     },
+    "tools/psp/encode_ghost_mp3_windows.cpp": {
+      "sha256": "abd6a40a9cca19729bbe1445b3a75f18accffb6a570da4fef6cfc8f39401c4df",
+      "why": "Tracked Kiln baker source or dependency"
+    },
     "tools/psp/psp_texconv.py": {
       "sha256": "c0ff6eaaeca05ceac9ad84a836f6f571b24f0a78a4d2a3b62582f4e75cb6cbeb",
       "why": "texture packer used by the Python bakers"
     },
-    "tools/psp/converter/texture_alpha_policy.hpp": {
-      "sha256": "a13b8da1c2b2f5075b05e2b114fcc1c7640c9c18b6a1a7aca298ba1b1f8d2625",
-      "why": "PSP converters: material alpha and authored NPC voices"
-    },
-    "include/rendering/psp/psp_model_instance.hpp": {
-      "sha256": "eece6c01fadc801480efb1e435f257c7d7a6730667bc544bc032398550e71837",
-      "why": "Sparse collision transforms shared by the PSP model renderer."
-    },
-    "include/rendering/psp/psp_marker_visibility.hpp": {
-      "sha256": "cac8a5dde3c939ba98c3106cfca39325d61cee167b9d3ff376f7596cf200b462",
-      "why": "Bounded world-marker wall visibility cache."
-    },
-    "include/rendering/psp/psp_world_decoration.hpp": {
-      "sha256": "c88325565494f1ecd66d4c96b923fa9efa471477e5d700fd5aa3b188792785d0",
-      "why": "Reject legacy ground decoration and bound streaming readiness polling."
-    },
-    "include/ui/psp/ui_settings_layout.hpp": {
-      "sha256": "6c4bfe7e94d85b9f212755d066fe2cda9e31ee180f2147d278e952d192592fff",
-      "why": "Focus-following layout for the combined PSP Graphics category."
-    },
-    "tests/test_psp_cast_sustain.py": {
-      "sha256": "bad59a011f646ed726d4ef201621db541326bde5f88cc83b10c2af1bb63eef89",
-      "why": "host regression for sustained caster audio, cancellation and PCM lifetime"
-    },
-    "include/ui/psp/ui_graphics_presets.hpp": {
-      "sha256": "821d4e2c94a28ecccff8411d3bab1ef77d8a954cd9a73488669368f6eb7c72b2",
-      "why": "graphics preset policy, Adaptive locking and Custom transitions"
-    },
-    "tests/test_psp_graphics_presets.py": {
-      "sha256": "900c4a11dfa3f55b6cae2088ea2b667f386e1f5d667b49e016dcd6496480996d",
-      "why": "production preset/edit/locking/config regression tests"
-    },
-    "docs/PSP_GRAPHICS_PRESETS.md": {
-      "sha256": "9b86a63c652706abb5433d4cda3cfbd095ed09965ef96120e18a52fffde6d45a",
-      "why": "preset levels, config migration and installation guide"
-    },
-    "docs/PSP_ADAPTIVE_RECOVERY_FFX_PORTRAITS.md": {
-      "sha256": "4f284dd05c6e2789fbf791479552a7b2e5d703f879cb5bbee3d12130b5ac5f11",
-      "why": "adaptive recovery, glow and close portrait behavior/validation notes"
-    },
-    "tests/test_psp_floor_support.cpp": {
-      "sha256": "b1ff23596e8dfd078d9ecc44061f74359480be224b0d293855163ea24670858d",
-      "why": "footprint support at collision seams, without filling ledges"
-    },
-    "tests/test_psp_stream_retry.py": {
-      "sha256": "4812382186d7c10e78e1563f78ff480200bde9b6f9db157455f82ecfc82f00d4",
-      "why": "stationary initial-building retry and safe teleport landing regression"
-    },
-    "docs/PSP_STORMWIND_FLOORS_HEARTHSTONE.md": {
-      "sha256": "addd21889b1ac2a27f3b5e8b9f19a50659a760de090a56c84586b2d924e4fdcd",
-      "why": "matching-world-stamp floor and hearthstone evidence, fixes and limits"
-    },
-    "include/rendering/psp/psp_wmo_landmarks.hpp": {
-      "sha256": "0c713957f9c2407271a9565ec86736e67eb3d3d536204f2e55e57c5c4998b144",
-      "why": "Bounded Stormwind hero statue landmarks, metadata repair and regression tests"
-    },
-    "tests/test_psp_wmo_landmarks.cpp": {
-      "sha256": "5fbdbdf398534d4659ffda59da876e107795d41f3081e30505dcf5e9e25e7be8",
-      "why": "Bounded Stormwind hero statue landmarks, metadata repair and regression tests"
-    },
-    "tools/psp/repair_wmo_landmarks.py": {
-      "sha256": "8f2e17bdfa44653cacc9dc69ab1799c073e44eddd371b7bcc970bd0ef7869420",
-      "why": "Bounded Stormwind hero statue landmarks, metadata repair and regression tests"
-    },
-    "tests/test_psp_wmo_landmarks.py": {
-      "sha256": "e6525ba0b2810191c0e97ba4a43586fc80fa7a3281e62ea4a63859c1817aa6d2",
-      "why": "Bounded Stormwind hero statue landmarks, metadata repair and regression tests"
-    },
-    "docs/PSP_STORMWIND_STATUES.md": {
-      "sha256": "8e9a9843ab43c42741f4262fbf0bd698968a686e3786b3a756c6a3b54611672e",
-      "why": "Bounded Stormwind hero statue landmarks, metadata repair and regression tests"
-    },
-    "include/rendering/psp/psp_wmo_batch_cache.hpp": {
-      "sha256": "7ca2ada46a81ca7add8d2a19988eabb88186de761ff8dbaceb478a4fa7c3dd7c",
-      "why": "Bounded building draw cache, nearest-first camera collision and reference regressions"
-    },
-    "tests/test_psp_camera_ray.cpp": {
-      "sha256": "d2f9b785f636ae4b63c4086284f2aaa01bc1974f16ff7d0446470aa7dae2f57c",
-      "why": "Bounded building draw cache, nearest-first camera collision and reference regressions"
-    },
-    "tests/test_psp_wmo_batch.cpp": {
-      "sha256": "1a87d77eb53c773d7c28d8f8e667499606af6e01a5497fa764afbcb7e81fa655",
-      "why": "Bounded building draw cache, nearest-first camera collision and reference regressions"
-    },
-    "docs/PSP_WMO_BATCHING_CAMERA_RAYS.md": {
-      "sha256": "f4195315aace330103e2285ac51bb68698058042c8baba673990bc12d421bef4",
-      "why": "Bounded building draw cache, nearest-first camera collision and reference regressions"
-    },
-    "include/platform/psp/psp_rest_triggers.hpp": {
-      "sha256": "9ddfc7fcbe7f9784a90dae468c3a2dbc44f0a06a5198685706d1b9e6356e1e1e",
-      "why": "Full-screen glow removal, server-owned inn resting and fishing visuals/regressions"
-    },
-    "include/rendering/psp/psp_fishing_visual.hpp": {
-      "sha256": "60beba33fa2021241506772db94a38141711d56cce855ba1a1ec8727c74c1286",
-      "why": "Full-screen glow removal, server-owned inn resting and fishing visuals/regressions"
-    },
-    "tests/test_psp_rest_triggers.cpp": {
-      "sha256": "5c68faacef97cb70f42b1c4ec54a152abd8a5d6008b8c6d024bc5c0d037598da",
-      "why": "Full-screen glow removal, server-owned inn resting and fishing visuals/regressions"
-    },
-    "tests/test_psp_fishing.cpp": {
-      "sha256": "f081ef6a6914fd9052bb4168b6a44c651084dd1d6ca4d569491ef10c1d76e807",
-      "why": "Full-screen glow removal, server-owned inn resting and fishing visuals/regressions"
-    },
-    "tests/test_psp_fishing_owner.py": {
-      "sha256": "5adbf572a7fff02334745a0feae5e9cc216b8025678ab31bf174bf4dac821a96",
-      "why": "Full-screen glow removal, server-owned inn resting and fishing visuals/regressions"
-    },
-    "docs/PSP_GLOW_REMOVAL_INNS_FISHING.md": {
-      "sha256": "1b526ea03bdd47aa445b584a6f4a1e2dbbf97315a290c96459e63a3f298cb61b",
-      "why": "Full-screen glow removal, server-owned inn resting and fishing visuals/regressions"
-    },
-    "tests/test_psp_fishing_splash.py": {
-      "sha256": "aa38e0a4f416150da10beb47a7d3f085ecc47b4154212a647f1f9f2a346c9518",
-      "why": "Fishing event visuals, local Charge spline ownership, death audio and host regressions"
-    },
-    "tests/test_psp_death_audio.py": {
-      "sha256": "cadf3ac6fe570ec973054460c856dcdeda21362a755f172308f8258b16af0885",
-      "why": "Fishing event visuals, local Charge spline ownership, death audio and host regressions"
-    },
-    "tools/psp/encode_ghost_mp3_windows.cpp": {
-      "sha256": "d38b1bcc0974683b4fa3b51ddc90c3bfa105ca2838f701d3e10faab833fe9d64",
-      "why": "Fishing event visuals, local Charge spline ownership, death audio and host regressions"
-    },
     "tools/psp/rebuild_ghost_ambience.sh": {
       "sha256": "3ed983efa99965c289619cdad7e01c81b2c3f38b7108031240bedca871b82199",
-      "why": "Fishing event visuals, local Charge spline ownership, death audio and host regressions"
+      "why": "Tracked Kiln baker source or dependency"
     },
-    "docs/PSP_FISHING_CHARGE_DEATH_AUDIO.md": {
-      "sha256": "9463a921a8c440c0d05cb84b024bc5aae95390be1ca83255528bf2261fb18175",
-      "why": "Fishing event visuals, local Charge spline ownership, death audio and host regressions"
+    "tools/psp/repair_wmo_landmarks.py": {
+      "sha256": "3ec70553afcfc66f81f754d8d3a51cc90cff180e2f35da197f9554240d0d6d10",
+      "why": "Tracked Kiln baker source or dependency"
     }
   },
-  "local_changes": "Water rendering integration; source_commit identifies the original export before these modifications.",
+  "local_changes": "Includes the tracked baker tree and converter dependencies. UTF-8 text hashes use LF line endings.",
   "source_commit": "3f97f46bbd8631372dd64092818330078caaf2f7"
 }
