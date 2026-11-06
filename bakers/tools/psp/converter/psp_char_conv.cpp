@@ -60,6 +60,7 @@ std::vector<uint32_t> g_anims = {0, 1, 4, 5, 11, 12, 13, 37, 38, 39, 41, 42, 96,
                                  // COMBAT_WOUND, COMBAT_CRITICAL, ATTACK_UNARMED/1H/2H/2HL,
                                  // READY_UNARMED/1H/2H/2HL, DODGE, ATTACK_1H_PIERCE, ATTACK_OFF
                                  9, 10, 16, 17, 18, 19, 25, 26, 27, 28, 30, 85, 87,
+                                 57, 58, 118, // weapon special attacks (Heroic Strike, etc.)
                                  // spells - what spellCastAnimCallback picks from: SPELL, SPELL_PRECAST,
                                  // SPELL_CAST, SPELL_CAST_AREA, READY_SPELL_DIRECTED/OMNI,
                                  // SPELL_CAST_DIRECTED/OMNI, CHANNEL_CAST_DIRECTED/OMNI
@@ -272,7 +273,7 @@ void bakeAnimated(const std::string& root, uint32_t race, uint32_t sex, const st
     const int standSeq = findSequence(model, 0);
     const std::vector<uint16_t> keep = attachmentKeepBones(model);  // attachment bones posed too
     SkinBakeInfo si;
-    std::vector<uint8_t> blob = bakeSkinned(model, bindVertices, batches, seqs, standSeq, g_rate, si, false, &keep);
+    std::vector<uint8_t> blob = bakeSkinned(attachmentWitnessModel(model), bindVertices, batches, seqs, standSeq, g_rate, si, false, &keep, nullptr, 0);
     char name[32];
     std::snprintf(name, sizeof(name), "n_%u_%u", race, sex);
     if (blob.empty()) {
@@ -329,7 +330,7 @@ void bakeAnimated(const std::string& root, uint32_t race, uint32_t sex, const st
     for (int e : emo) {
         SkinBakeInfo ei;
         std::vector<uint8_t> eblob =
-            bakeSkinned(model, bindVertices, batches, {e}, standSeq, g_rate, ei, true, &keep);  // same bones
+            bakeSkinned(attachmentWitnessModel(model), bindVertices, batches, {e}, standSeq, g_rate, ei, true, &keep, nullptr, 0);  // same bones; no NPC cap
         appendFootstepEvents(eblob, root, m2Path, m2, model, {e});  // sounds ($FSD in WSKA too)
         fmt::SkinView extra;
         if (eblob.empty() || !mainOk ||
@@ -503,6 +504,25 @@ bool bakeRaceSex(const std::string& root, uint32_t race, uint32_t sex, const pip
     std::snprintf(name, sizeof(name), "a_%u_%u", race, sex);
     std::printf("%s: skins %u faces %u hair %ux%u facial %u\n", name, skins, faces, styles, colors, facials);
     out.push_back({name, kKindAppearance, std::move(app)});
+
+    // Optional facial/scalp layers, indexed by style and hair color. WAPP stays
+    // compatible with older packs and readers; missing rows remain transparent.
+    std::vector<uint16_t> detail((facials+styles)*colors*2,fmt::kNoLayer);
+    for (uint32_t i=0;i<sections.getRecordCount();++i) {
+        if (sections.getUInt32(i,f.raceId)!=race || sections.getUInt32(i,f.sexId)!=sex) continue;
+        const uint32_t base=sections.getUInt32(i,f.baseSection);
+        const uint32_t var=sections.getUInt32(i,f.variationIndex), color=sections.getUInt32(i,f.colorIndex);
+        if (color>=colors || (base!=2 && base!=3)) continue;
+        if (var>=(base==2 ? facials : styles)) continue;
+        const uint32_t at=((base==2 ? var : facials+var)*colors+color)*2;
+        // Facial section textures 1/2, scalp section textures 2/3.
+        detail[at]=layers.get(sections.getString(i,base==2 ? f.texture1 : f.texture2),false);
+        detail[at+1]=layers.get(sections.getString(i,base==2 ? f.texture2 : f.texture2+1),false);
+    }
+    std::vector<uint8_t> extra={'W','A','F','L',static_cast<uint8_t>(facials),static_cast<uint8_t>(styles),static_cast<uint8_t>(colors),0};
+    for (uint16_t id:detail) put<uint16_t>(extra,id);
+    std::snprintf(name,sizeof(name),"f_%u_%u",race,sex);
+    out.push_back({name,kKindAppearance,std::move(extra)});
 
     // Attachments - "p_<race>_<sex>" (attach_bake.hpp): upstream
     // findAttachmentBone per attachment id, the WSKN bone of "n_" and the
@@ -850,8 +870,16 @@ int main(int argc, char** argv) {
         // The sit-in-chair loops a chair's / the barber chair's stand state plays
         // (SMSG_STANDSTATE_UPDATE 4..6: SitChairLow / Med / High, upstream ActivityFSM) - with the emotes: loaded on
         // demand (CharacterModel::playAnimation -> loadExtra), nothing more in "n_".
-        for (uint32_t id : {102u, 103u, 104u})
+        for (uint32_t id : {50u, 102u, 103u, 104u, 133u, 134u, 114u, 115u, 116u, 188u, 189u})
             if (std::find(g_anims.begin(), g_anims.end(), id) == g_anims.end()) ids.insert(id);
+        // SpellVisualKit animations outside the base set remain on-demand extras,
+        // so adding ability coverage does not enlarge every resident base model.
+        pipeline::DBCFile spellKits;
+        if(loadDbc(root,"spellvisualkit.dbc",spellKits) && spellKits.getFieldCount()>2)
+            for(uint32_t row=0;row<spellKits.getRecordCount();++row)for(uint32_t field:{1u,2u}) {
+                const uint32_t id=spellKits.getUInt32(row,field);
+                if(id && id<65535 && std::find(g_anims.begin(),g_anims.end(),id)==g_anims.end())ids.insert(id);
+            }
         g_emoteAnims.assign(ids.begin(), ids.end());
         fmt::EmoteTable t{};
         std::memcpy(t.magic, "WEMO", 4);

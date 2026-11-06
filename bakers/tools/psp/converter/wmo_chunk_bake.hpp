@@ -21,6 +21,7 @@
 #include "pipeline/wmo_group_path.hpp"
 #include "pipeline/wmo_loader.hpp"
 #include "rendering/psp/psp_bigwmo_format.hpp"
+#include "rendering/psp/psp_wmo_landmarks.hpp"
 #include "rendering/psp/psp_model_format.hpp"
 
 #include "conv_common.hpp"
@@ -759,6 +760,7 @@ inline bool BigWmoBaker::bake(const std::string& gamePath, const pipeline::WMOMo
         for (uint16_t d : modr[gi])
             if (d < doodadGroup.size() && doodadGroup[d] == 0xFFFF) doodadGroup[d] = static_cast<uint16_t>(gi);
     std::map<int, std::vector<fmt::BigWmoDoodad>> doodadsByCell;
+    std::vector<fmt::BigWmoDoodad> landmarks;
     for (const auto& set : m.doodadSets) out.sets.emplace_back(set.startIndex, set.count);
     size_t doodadTotal = 0, doodadNoModel = 0;
     for (size_t i = 0; i < m.doodads.size(); ++i) {
@@ -795,6 +797,7 @@ inline bool BigWmoBaker::bake(const std::string& gamePath, const pipeline::WMOMo
         o.sphere[3] = mr.radius * std::max({glm::length(ax[0]), glm::length(ax[1]), glm::length(ax[2])});
         const int cell = cellOf(sc);
         doodadsByCell[cell].push_back(o);
+        if (fmt::isWmoLandmark(nameIt->second) && landmarks.size() < 16) landmarks.push_back(o);
         cellIndex.emplace(cell, 0);
         ++doodadTotal;
     }
@@ -1139,6 +1142,15 @@ inline bool BigWmoBaker::bake(const std::string& gamePath, const pipeline::WMOMo
         table(h.chunkLodOffset, chunkLod.data(), chunkLod.size() * sizeof(fmt::BigWmoBlobRef));
         table(h.textureOffset, texRefs.data(), texRefs.size() * sizeof(fmt::BigWmoBlobRef));
         table(h.chunkNearOffset, chunkNear.data(), chunkNear.size() * sizeof(fmt::BigWmoBlobRef));
+        if (!landmarks.empty()) {
+            alignTo(b, 4);
+            h.reserved = static_cast<uint32_t>(b.size());
+            const uint32_t count=static_cast<uint32_t>(landmarks.size());
+            const auto* cp=reinterpret_cast<const uint8_t*>(&count);
+            b.insert(b.end(),cp,cp+sizeof(count));
+            const auto* dp=reinterpret_cast<const uint8_t*>(landmarks.data());
+            b.insert(b.end(),dp,dp+landmarks.size()*sizeof(fmt::BigWmoDoodad));
+        }
         std::memcpy(b.data(), &h, sizeof(h));
         return b;
     };

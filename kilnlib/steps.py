@@ -36,7 +36,7 @@ P_MODELS = ["character\\", "creature\\", "item\\", "spells\\", "particles\\", "t
             "interface\\framexml\\"]
 P_WORLD = ["world\\", "tileset\\", "dungeons\\", "environments\\", "interiors\\", "textures\\", "xtextures\\",
            "spells\\", "particles\\", "creature\\", "character\\", "item\\", "misc\\", "interface\\worldmap\\"]
-P_SOUND = ["sound\\character\\", "sound\\item\\weapons\\", "sound\\spells\\enterwater", "sound\\spell\\fishingbobber",
+P_SOUND = ["sound\\ambience\\", "sound\\character\\", "sound\\item\\weapons\\", "sound\\spells\\enterwater", "sound\\spell\\fishingbobber",
            "sound\\interface\\", "world\\maps\\"]
 P_MUSIC = ["sound\\music\\", "sound\\ambience\\", "sound\\interface\\", "world\\maps\\"]
 
@@ -179,11 +179,11 @@ def static_steps(bakers_dir):
     s.append(Step("xmb_art", "interface", "xmb/ICON0.PNG + xmb/PIC1.PNG: menu icon and background from your client's art",
                   prefixes=P_DBC + ["interface\\glues\\"], run=[], outputs=["xmb/*.PNG", "xmb/EBOOT.PBP"],
                   builtin="xmb_art"))
-    s.append(Step("sounds", "audio", "sounds.pak (+ sounds_N.pak parts): sound effects and voices",
+    s.append(Step("sounds", "audio", "sounds.pak (+ sounds_N.pak parts): sound effects, voices and terrain water",
                   prefixes=P_DBC + P_SOUND, locale="full",
                   probes=[Probe(["@exe:psp_sound_conv", "--extracted", "{X}", "--out", "{W}/sounds_probe.pak",
                                  "--list-missing"], "{L}/sounds_missing.txt", stdout=True, keep="missing ")],
-                  run=[["@exe:psp_sound_conv", "--extracted", "{X}", "--out", "{D}/sounds.pak", "--map", "{map0}",
+                  run=[["@exe:psp_sound_conv", "--extracted", "{X}", "--out", "{D}/sounds.pak", "--all-maps", "--trim-long",
                         "--verify"]],
                   clean=["data/sounds_*.pak"], outputs=["data/sounds.pak", "data/sounds_*.pak"]))
     s.append(Step("audio", "audio", "audio.pak + music/: zone music (tracks copied from the client)",
@@ -208,9 +208,9 @@ def static_steps(bakers_dir):
                         "--jobs", "{jobs}", "--verify"]],
                   outputs=["data/creatures.pak"], warn_rc=[4]))
     s.append(Step("spellfx", "models", "spellfx.pak: spell effects", prefixes=P_DBC + P_MODELS,
-                  probes=[Probe(["@exe:psp_spellfx_conv", "--extracted", "{X}", "--out", "{W}/spellfx_probe.pak",
+                  probes=[Probe(["@exe:psp_spellfx_conv", "--extracted", "{X}", "--out", "{W}/spellfx_probe.pak", "--all",
                                  "--list-missing", "{L}/spellfx_missing.txt"], "{L}/spellfx_missing.txt")],
-                  run=[["@exe:psp_spellfx_conv", "--extracted", "{X}", "--out", "{D}/spellfx.pak"]],
+                  run=[["@exe:psp_spellfx_conv", "--extracted", "{X}", "--out", "{D}/spellfx.pak", "--all"]],
                   verify=[["@exe:psp_spellfx_conv", "--verify", "{D}/spellfx.pak"]],
                   outputs=["data/spellfx.pak"]))
     for name, extra, title in (("gameobjects", ["--gameobjects"], "gameobjects.pak: object models"),
@@ -241,7 +241,7 @@ def bigwmo_prefix(lower):
 
 
 def map_steps(group, m):
-    """terrain / doodads (+ data/bigwmo/) / minimap of one map."""
+    """terrain / doodads (+ data/bigwmo/) / minimap / lightweight hole masks of one map."""
     p = {"map": m.dir, "lower": m.lower, "tiles": "global" if m.global_wmo else m.tiles,
          "bigwmo": bigwmo_prefix(m.lower)}
     extra = ["--global-max-tris", GLOBAL_MAX_TRIS] if m.global_wmo else []
@@ -262,6 +262,10 @@ def map_steps(group, m):
              run=[["@exe:psp_minimap_conv", "--extracted", "{X}", "--map", "{map}", "--all", "--worldmap", "all",
                    "--out", "{D}/minimap_{lower}.pak", "--verify"]],
              outputs=["data/minimap_{lower}.pak"]),
+        Step("terrain_holes_" + m.lower, "maps:" + group, "terrain_holes_%s.pak" % m.lower,
+             prefixes=["world\\maps\\%s\\" % m.lower], params=p,
+             run=[["@py:build_terrain_hole_overrides.py", "--extracted", "{X}", "--map", "{map}", "--out", "{D}"]],
+             outputs=["data/terrain_holes_{lower}.pak"]),
     ]
 
 
@@ -294,3 +298,17 @@ NOT_PROVIDED = {
     "music/original/": "the upstream project's own composed music is not part of the client and its "
                        "licence does not allow Kiln to copy it",
 }
+
+
+def apply_compact(steps):
+    """Keep all selected content; reduce model textures and animation samples on disk."""
+    texture_tools={"@exe:psp_model_conv","@exe:psp_item_conv","@exe:psp_char_conv","@exe:psp_creature_conv"}
+    for step in steps:
+        for cmd in step.run:
+            if cmd and cmd[0] in texture_tools:
+                cmd.extend(["--tex-max","64"])
+            if cmd and cmd[0] in {"@exe:psp_char_conv","@exe:psp_creature_conv"}:
+                cmd.extend(["--rate","20"])
+            if cmd and cmd[0]=="@exe:psp_sound_conv":
+                cmd.extend(["--rate","11025"])
+    return steps

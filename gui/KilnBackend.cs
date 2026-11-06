@@ -110,6 +110,7 @@ public sealed class RunOptions
     public List<string> Steps = new();             // empty = Kiln's default
     public int Jobs = Environment.ProcessorCount;
     public bool Force;
+    public bool Compact;
     public string? Eboot;
     public string? Server;                         // kiln.py --server host[:port] (wowee.cfg server=)
     public string App = "WOWEEPSP";
@@ -151,6 +152,7 @@ public static class KilnCli
         if (caps.Has("--default-locale") && !string.IsNullOrEmpty(o.DefaultLocale)) { a.Add("--default-locale"); a.Add(o.DefaultLocale!); }
         if (!string.IsNullOrEmpty(o.RemoveLocale)) { a.Add("--remove-locale"); a.Add(o.RemoveLocale!); }
         if (makes && o.Steps.Count > 0) { a.Add("--steps"); a.Add(string.Join(",", o.Steps)); }
+        if (o.Compact && caps.Has("--compact")) a.Add("--compact");
         a.Add("--jobs"); a.Add(Math.Max(1, o.Jobs).ToString());
         if (o.Force && o.Mode == KilnMode.Run) a.Add("--force");
         if (makes && !string.IsNullOrWhiteSpace(o.Eboot) && caps.Has("--eboot")) { a.Add("--eboot"); a.Add(o.Eboot!); }

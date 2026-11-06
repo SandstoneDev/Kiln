@@ -28,6 +28,7 @@
 #include "conv_common.hpp"
 
 #include <cstdio>
+#include <algorithm>
 #include <cstring>
 #include <filesystem>
 #include <map>
@@ -109,6 +110,8 @@ int main(int argc, char** argv) {
         auto it = trackIndex.find(card);
         if (it != trackIndex.end()) return it->second;
         const std::string src = p.rfind("file:", 0) == 0 ? p.substr(5) : g_root + "/" + normalise(p);
+        // PSP: one legacy-layout copy serves stock EBOOTs and the current
+        // runtime's musicFilePath fallback; audio.pak keeps the same track ID.
         const fs::path dst = fs::path(musicOut) / card;
         std::error_code ec;
         if (!fs::exists(src, ec)) {
@@ -130,6 +133,7 @@ int main(int argc, char** argv) {
         trackIndex[card] = idx;
         return idx;
     };
+    addTrack("sound/music/gluescreenmusic/wotlk_main_title.mp3");
     std::vector<fmt::AudioArea> areas;
     for (uint32_t r = 0; r < area.getRecordCount(); ++r) {
         const uint32_t id = area.getUInt32(r, 0);
@@ -147,6 +151,41 @@ int main(int argc, char** argv) {
         z.trackCount = static_cast<uint16_t>(zoneTracks.size() - z.firstTrack);
         if (z.trackCount) zones.push_back(z);
     }
+    std::vector<fmt::AudioMusicRule> musicRules;
+    std::vector<uint16_t> musicTracks;
+    pipeline::DBCFile zoneMusic, soundEntries;
+    std::vector<uint8_t> zoneBytes, soundBytes;
+    if (readFile(g_root+"/dbfilesclient/zonemusic.dbc",zoneBytes) && zoneMusic.load(zoneBytes) &&
+        readFile(g_root+"/dbfilesclient/soundentries.dbc",soundBytes) && soundEntries.load(soundBytes) &&
+        zoneMusic.getFieldCount()>=8 && soundEntries.getFieldCount()>23 && area.getFieldCount()>8) {
+        for (uint32_t i=0;i<area.getRecordCount();++i) {
+            const uint32_t musicId=area.getUInt32(i,8);
+            const int32_t mi=zoneMusic.findRecordById(musicId);
+            if (!musicId || mi<0) continue;
+            fmt::AudioMusicRule rule{};
+            rule.areaId=area.getUInt32(i,0);
+            for (uint32_t phase=0;phase<2;++phase) {
+                rule.soundId[phase]=zoneMusic.getUInt32(mi,6+phase);
+                rule.silenceMinMs[phase]=zoneMusic.getUInt32(mi,2+phase);
+                rule.silenceMaxMs[phase]=zoneMusic.getUInt32(mi,4+phase);
+                rule.firstTrack[phase]=static_cast<uint32_t>(musicTracks.size());
+                const int32_t si=soundEntries.findRecordById(rule.soundId[phase]);
+                if (si>=0) {
+                    const std::string dir=soundEntries.getString(si,23);
+                    for (uint32_t field=3;field<=12;++field) {
+                        const std::string file=soundEntries.getString(si,field);
+                        if (file.empty()) continue;
+                        const int track=addTrack(dir.empty() ? file : dir+"/"+file);
+                        if (track>=0) musicTracks.push_back(static_cast<uint16_t>(track));
+                    }
+                }
+                rule.trackCount[phase]=static_cast<uint32_t>(musicTracks.size())-rule.firstTrack[phase];
+            }
+            musicRules.push_back(rule);
+        }
+        std::sort(musicRules.begin(),musicRules.end(),[](const auto& a,const auto& b){ return a.areaId<b.areaId; });
+    }
+    std::printf("authored music: %zu area rules, %zu day/night track references\n",musicRules.size(),musicTracks.size());
     std::vector<fmt::AudioTile> tiles;
     for (int x = 0; x < 64; ++x)
         for (int y = 0; y < 64; ++y)
@@ -184,6 +223,12 @@ int main(int argc, char** argv) {
     std::memcpy(blob.data(), &h, sizeof(h));
     std::vector<PakItem> items;
     items.push_back({"zones", 3, std::move(blob)});
+    if (!musicRules.empty()) {
+        const auto* rules=reinterpret_cast<const uint8_t*>(musicRules.data());
+        items.push_back({"music_rules",3,std::vector<uint8_t>(rules,rules+musicRules.size()*sizeof(fmt::AudioMusicRule))});
+        const auto* indices=reinterpret_cast<const uint8_t*>(musicTracks.data());
+        if (!musicTracks.empty()) items.push_back({"music_tracks",3,std::vector<uint8_t>(indices,indices+musicTracks.size()*sizeof(uint16_t))});
+    }
 
     // MCNK area ids per ADT tile of the map.
     size_t adts = 0;

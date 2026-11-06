@@ -5,6 +5,7 @@
 #pragma once
 
 #include "pipeline/blp_loader.hpp"
+#include "texture_alpha_policy.hpp"
 #include "pipeline/m2_loader.hpp"
 #include "rendering/m2_track_sampler.hpp"
 #include "rendering/psp/psp_model_format.hpp"
@@ -40,9 +41,9 @@ public:
     // alpha (blend 0: no alpha test, no blending, upstream too), where many textures keep a specular mask in the
     // alpha (a capital city's trims: 56 % of a city support texture's 2x2 blocks at alpha 0, which the alpha-weighted
     // halving turned black). Such a use bakes the picture with alpha 1: the real colours, the whole CLUT for them.
-    int get(const std::string& gamePath, bool& hasAlpha, bool opaque = false) {
+    int get(const std::string& gamePath, bool& hasAlpha, bool opaque = false, bool foliage = false) {
         const std::string path = lower(gamePath);
-        const std::string key = opaque ? path + "|opaque" : path;
+        const std::string key = opaque ? path + (foliage ? "|foliage-opaque" : "|opaque") : path;
         auto it = ids_.find(key);
         if (it != ids_.end()) {
             hasAlpha = it->second.second;
@@ -54,8 +55,7 @@ public:
         if (readFile(root_ + "/" + path, bytes)) {
             pipeline::BLPImage img = pipeline::BLPLoader::load(bytes);
             if (!img.data.empty() && img.width > 0 && img.height > 0) {
-                if (opaque)
-                    for (size_t i = 3; i < img.data.size(); i += 4) img.data[i] = 255;
+                prepareMaterialTextureAlpha(img, opaque, foliage);
                 id = static_cast<int>(count_++);
                 std::vector<uint8_t> blob = bake(img, hasAlpha, texMax_);
                 bytes_ += blob.size();
@@ -216,8 +216,8 @@ struct Region {
 };
 inline Region regionFor(const std::string& p) {
     auto has = [&](const char* s) { return p.find(s) != std::string::npos; };
-    if (has("faceupper")) return {0, 160, 128, 32, true};
-    if (has("facelower")) return {0, 192, 128, 64, true};
+    if (has("faceupper") || has("facialupperhair") || has("scalpupperhair")) return {0, 160, 128, 32, true};
+    if (has("facelower") || has("faciallowerhair") || has("scalplowerhair")) return {0, 192, 128, 64, true};
     if (has("pelvis")) return {128, 96, 128, 64, true};
     if (has("torso")) return {128, 0, 128, 64, true};
     if (has("armupper")) return {0, 0, 128, 64, true};

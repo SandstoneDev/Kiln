@@ -11,10 +11,15 @@
 #include "rendering/psp/psp_skeleton.hpp"
 
 #include "model_bake.hpp"
+#include "skin_quality_policy.hpp"
+#include "skin_visibility_fast.hpp"
+#include <atomic>
+#include <thread>
 
 #include <glm/gtc/quaternion.hpp>
 
 #include <array>
+#include <numeric>
 #include <set>
 
 namespace wowee::pspconv {
@@ -84,10 +89,108 @@ struct SkinBakeInfo {
     size_t vertexBytes = 0, animBytes = 0, trimmedInfluences = 0, weightless = 0;
     std::array<size_t, fmt::kSkinMaxPalette> paletteHistogram{};
     std::vector<uint32_t> emittedSource;  // source vertex per emitted vertex, in blob order (verify)
+    // PSP: host-only oracle anchors retained when a timed grid is coarsened.
+    std::vector<std::set<float>> verificationTimes;
     float standHeight = 0.0f;
 };
 
 namespace skin_detail {
+
+inline bool trackVaries(const pipeline::M2AnimationTrack& track,int sequence) {
+    if(track.globalSequence>=0||sequence<0||static_cast<size_t>(sequence)>=track.sequences.size())return false;
+    const auto& keys=track.sequences[sequence];
+    const auto vectors=std::min(keys.timestamps.size(),keys.vec3Values.size());
+    for(size_t i=1;i<vectors;++i)if(keys.vec3Values[i]!=keys.vec3Values[0])return true;
+    const auto rotations=std::min(keys.timestamps.size(),keys.quatValues.size());
+    for(size_t i=1;i<rotations;++i)
+        if(keys.quatValues[i]!=keys.quatValues[0]&&keys.quatValues[i]!=-keys.quatValues[0])return true;
+    return false;
+}
+
+// PSP: refine only sequences whose uniform grid visibly loses authored motion.
+// Use actual vertices and attachment offsets at the offline verifier's times,
+// before weight/position quantization. This is a bounded quality probe, not a
+// proof over continuous time; --verify still reports residual packing errors.
+// Stop at 4x the requested sample count: animation memory caps still apply in
+// the caller, and unresolved precision remains visible in --verify.
+inline uint32_t animationIntervals(const pipeline::M2Model& model, int seq, uint32_t base,
+                                  const std::vector<uint16_t>& skinBones,
+                                  const std::vector<pipeline::M2Vertex>& bind,
+                                  const std::vector<uint8_t>& used) {
+    const float duration = static_cast<float>(model.sequences[seq].duration);
+    if (!(duration > 0)) return base;
+    std::set<float> times;
+    for (float f : {0.13f, 0.37f, 0.5f, 0.71f, 0.93f, 0.999f}) times.insert(duration * f);
+    for (int k = 1; k < 6; ++k) times.insert(duration * k / 6);
+    namespace tr = rendering::m2_track;
+    auto local = [&](const pipeline::M2Bone& bone, float t0, float t1, float f) {
+        const auto& globals = model.globalSequenceDurations;
+        const auto tv = glm::mix(tr::sampleVec3(bone.translation,seq,t0,0,globals,glm::vec3(0)),
+                                 tr::sampleVec3(bone.translation,seq,t1,0,globals,glm::vec3(0)), f);
+        auto q0 = tr::sampleQuat(bone.rotation,seq,t0,0,globals);
+        auto q1 = tr::sampleQuat(bone.rotation,seq,t1,0,globals);
+        if (glm::dot(q0,q1) < 0) q1 = -q1;
+        const auto q = glm::normalize(q0 * (1-f) + q1 * f);
+        const auto sv = glm::mix(tr::sampleVec3(bone.scale,seq,t0,0,globals,glm::vec3(1)),
+                                 tr::sampleVec3(bone.scale,seq,t1,0,globals,glm::vec3(1)), f);
+        glm::mat4 m(glm::mat3_cast(q));
+        m[0] *= sv.x; m[1] *= sv.y; m[2] *= sv.z;
+        m[3] = glm::vec4(bone.pivot + tv - glm::vec3(m * glm::vec4(bone.pivot,0)), 1);
+        return m;
+    };
+    std::vector<glm::mat4> exact, approx(model.bones.size(),glm::mat4(1));
+    const uint32_t limit = std::min<uint32_t>(65534, base * 4u);
+    uint32_t intervals = base;
+    uint32_t best = base;
+    float bestError = 1e30f;
+    bool triedAligned = false;
+    for (;;) {
+        float error = 0;
+        for (float t : times) {
+            const float x = t * intervals / duration;
+            const uint32_t k = std::min<uint32_t>(static_cast<uint32_t>(x), intervals - 1);
+            const float t0 = duration * k / intervals, t1 = duration * (k+1) / intervals;
+            poseBones(model,seq,t,exact);
+            for (uint16_t b : skinBones) {
+                const auto& bone = model.bones[b];
+                const auto l = local(bone,t0,t1,x-k);
+                approx[b] = bone.parentBone >= 0 ? approx[bone.parentBone] * l : l;
+            }
+            for (size_t i = 0; i < bind.size(); ++i) {
+                if (!used[i]) continue;
+                glm::vec3 a, b;
+                if (skinVertex(bind[i], exact, a, nullptr) && skinVertex(bind[i], approx, b, nullptr))
+                    error = std::max(error, glm::length(a-b));
+            }
+            for (const auto& attachment : model.attachments) {
+                if (attachment.bone >= model.bones.size() ||
+                    std::find(skinBones.begin(),skinBones.end(),attachment.bone) == skinBones.end()) continue;
+                const auto delta = exact[attachment.bone] - approx[attachment.bone];
+                error = std::max(error,glm::length(glm::vec3(delta * glm::vec4(attachment.position,1))));
+            }
+        }
+        if (error < bestError) { bestError = error; best = intervals; }
+        if (error <= 0.01f || triedAligned) return best;
+        if (intervals >= limit) {
+            // PSP: a fixed 120-Hz grid can still straddle a sharp authored
+            // corner (e.g. a 500-ms peak in a 1334-ms sequence). Try the
+            // exact integer-ms key grid once, with a bounded PC sample budget.
+            uint32_t divisor=model.sequences[seq].duration;
+            for(uint16_t b:skinBones)
+                for(const auto* track:{&model.bones[b].translation,&model.bones[b].rotation,&model.bones[b].scale}) {
+                    if(track->globalSequence>=0||static_cast<size_t>(seq)>=track->sequences.size())continue;
+                    for(uint32_t t:track->sequences[seq].timestamps)if(t<=duration)divisor=std::gcd(divisor,t);
+                }
+            const uint32_t aligned=divisor?model.sequences[seq].duration/divisor:0;
+            if(aligned>=base&&aligned!=intervals&&aligned<=65534 &&
+               uint64_t{aligned+1}*skinBones.size()<=131072) {
+                intervals=aligned;triedAligned=true;continue;
+            }
+            return best;
+        }
+        intervals = std::min(limit, intervals * 2u);
+    }
+}
 
 struct Influences {
     int n = 0;
@@ -118,18 +221,19 @@ inline Influences influencesOf(const pipeline::M2Vertex& v, size_t boneCount) {
 }
 
 // Normalised weights -> u8 with 128 = 1.0, summing to exactly 128.
-inline void quantizeWeights(const Influences& in, uint8_t out[4]) {
+template<class T>
+inline void quantizeWeightsUnit(const Influences& in, T out[4], int one) {
     float sum = 0.0f;
     for (int k = 0; k < in.n; ++k) sum += in.w[k];
     int q[4] = {}, total = 0;
     float frac[4] = {};
     for (int k = 0; k < in.n; ++k) {
-        const float x = in.w[k] / sum * kSkinWeightOne;
+        const float x = in.w[k] / sum * one;
         q[k] = static_cast<int>(std::floor(x));
         frac[k] = x - q[k];
         total += q[k];
     }
-    while (total < 128) {
+    while (total < one) {
         int best = 0;
         for (int k = 1; k < in.n; ++k)
             if (frac[k] > frac[best]) best = k;
@@ -137,24 +241,35 @@ inline void quantizeWeights(const Influences& in, uint8_t out[4]) {
         frac[best] = -1.0f;
         ++total;
     }
-    for (int k = 0; k < 4; ++k) out[k] = static_cast<uint8_t>(k < in.n ? q[k] : 0);
+    for (int k = 0; k < 4; ++k) out[k] = static_cast<T>(k < in.n ? q[k] : 0);
 }
+inline void quantizeWeights(const Influences& in, uint8_t out[4]) { quantizeWeightsUnit(in,out,128); }
 
 } // namespace skin_detail
 
 // Builds the WSKN blob. `bind`: the M2 vertices in the bind pose; `model`: the
 // M2 with the sequences in `sequenceIndices` loaded (.anim files merged);
 // `standSeq`: Stand (lighting and standHeight), -1 = bind pose.
-inline std::vector<uint8_t> bakeSkinned(const pipeline::M2Model& model, const std::vector<pipeline::M2Vertex>& bind,
+inline std::vector<uint8_t> bakeSkinnedRaw(const pipeline::M2Model& model, const std::vector<pipeline::M2Vertex>& bind,
                                         const std::vector<SkinBatchIn>& batches,
                                         const std::vector<int>& sequenceIndices, int standSeq, float rate,
                                         SkinBakeInfo& info, bool animOnly = false,
-                                        const std::vector<uint16_t>* keepBones = nullptr) {
+                                        const std::vector<uint16_t>* keepBones = nullptr,
+                                        const std::vector<uint32_t>* frameIntervals = nullptr,
+                                        bool preciseWeights = false, bool virtualPalette = false,
+                                        bool forceFloatPosition = false,
+                                        const std::vector<std::vector<uint32_t>>* frameTimes = nullptr,
+                                        bool compactTranslations = false,
+                                        const std::set<std::pair<int,uint16_t>>* floatTranslationTracks = nullptr,
+                                        bool slerpRotation = false, bool floatRotation = false) {
     using namespace skin_detail;
     info = SkinBakeInfo{};
     const size_t nBonesM2 = model.bones.size();
     std::vector<uint8_t> blob;
     if (nBonesM2 == 0 || batches.empty()) return blob;
+    if (frameIntervals && frameIntervals->size() != sequenceIndices.size()) return blob;
+    if (frameTimes && frameTimes->size() != sequenceIndices.size()) return blob;
+    if((compactTranslations||slerpRotation||floatRotation)&&!frameTimes)return blob;
 
     // Influences of every used vertex; weightless vertices follow bone 0
     // (upstream's shader would collapse them to the origin).
@@ -180,7 +295,35 @@ inline std::vector<uint8_t> bakeSkinned(const pipeline::M2Model& model, const st
     // A triangle over more than 8 bones: drop its lightest influence (the
     // vertex keeps the rest, renormalised) until it fits one palette.
     std::set<uint16_t> tb;
-    for (const auto& b : batches) {
+    std::vector<Influences> virtualInfluences;
+    std::map<std::array<uint16_t,8>,uint16_t> virtualIds;
+    if (virtualPalette) {
+        bool changed=true;
+        while(changed) {
+            changed=false;
+            for(const auto& batch:batches)
+                for(size_t t=0;t+2<batch.tris.size();t+=3) {
+                    triBones(batch.tris.data()+t,tb);
+                    while(tb.size()>static_cast<size_t>(g_maxPalette)) {
+                        int best=-1;size_t count=static_cast<size_t>(-1);
+                        for(int c=0;c<3;++c) {
+                            const auto vi=batch.tris[t+c];const auto save=infl[vi];
+                            if(save.n==1&&save.bone[0]>=nBonesM2)continue;
+                            infl[vi].n=1;infl[vi].bone[0]=static_cast<uint16_t>(nBonesM2+virtualInfluences.size());
+                            std::set<uint16_t> trial;triBones(batch.tris.data()+t,trial);infl[vi]=save;
+                            if(trial.size()<count){best=static_cast<int>(vi);count=trial.size();}
+                        }
+                        if(best<0||nBonesM2+virtualInfluences.size()>65535)return {};
+                        const auto original=infl[best];std::array<uint16_t,8> key{};
+                        for(int k=0;k<original.n;++k){key[k]=original.bone[k];key[k+4]=static_cast<uint16_t>(std::lround(original.w[k]*255));}
+                        auto [it,inserted]=virtualIds.emplace(key,static_cast<uint16_t>(nBonesM2+virtualInfluences.size()));
+                        if(inserted)virtualInfluences.push_back(original);
+                        infl[best].n=1;infl[best].bone[0]=it->second;infl[best].w[0]=1;
+                        changed=true;triBones(batch.tris.data()+t,tb);
+                    }
+                }
+        }
+    } else for (const auto& b : batches) {
         for (size_t t = 0; t + 2 < b.tris.size(); t += 3) {
             for (triBones(&b.tris[t], tb); tb.size() > static_cast<size_t>(g_maxPalette); triBones(&b.tris[t], tb)) {
                 int bestV = -1, bestK = -1;
@@ -264,9 +407,12 @@ inline std::vector<uint8_t> bakeSkinned(const pipeline::M2Model& model, const st
 
     // Bones: those the palettes use plus ancestors, M2 order (parents first).
     std::vector<uint8_t> need(nBonesM2, 0);
+    auto needBone=[&](int b){for(;b>=0&&!need[b];b=model.bones[b].parentBone)need[b]=1;};
     for (const auto& s : subs)
-        for (int j = 0; j < s.n; ++j)
-            for (int b = s.slot[j]; b >= 0 && !need[b]; b = model.bones[b].parentBone) need[b] = 1;
+        for (int j = 0; j < s.n; ++j) {
+            if(static_cast<size_t>(s.slot[j])<nBonesM2)needBone(s.slot[j]);
+            else {const auto& in=virtualInfluences[s.slot[j]-nBonesM2];for(int k=0;k<in.n;++k)needBone(in.bone[k]);}
+        }
     // Bones the caller needs posed although no vertex uses them
     // (attachment points), with their ancestors.
     if (keepBones)
@@ -327,9 +473,25 @@ inline std::vector<uint8_t> bakeSkinned(const pipeline::M2Model& model, const st
         if (used[v]) radius = std::max(radius, glm::length(bind[v].position - center));
     info.standHeight = standTop;
 
+    // PSP: choose the accurate vertex/key representation before writing vertices.
+    // Inspect authored values too, so a brief large scale between bake frames
+    // cannot evade the format selection.
+    bool floatScale = false;
+    for (uint16_t b : skinBones)
+        for (int seq : sequenceIndices) {
+            const auto& track = model.bones[b].scale;
+            const int index = track.globalSequence >= 0 ? 0 : seq;
+            if (index < 0 || static_cast<size_t>(index) >= track.sequences.size()) continue;
+            for (const auto& s : track.sequences[index].vec3Values)
+                for (int a = 0; a < 3; ++a)
+                    floatScale |= std::isfinite(s[a]) && std::fabs(s[a]) > 32767.0f / kSkinScaleOne;
+        }
+    const bool floatPosition=floatScale||forceFloatPosition;
+
     // Vertices: one strip per sub-batch (meshoptimizer, degenerate joins).
     std::vector<uint8_t> vbytes;
     std::vector<fmt::SkinSubBatch> outSubs;
+    std::vector<std::array<fmt::SkinPaletteBlend,kSkinMaxPalette>> outPalettes;
     for (const auto& s : subs) {
         std::unordered_map<uint32_t, uint32_t> local;
         std::vector<uint32_t> src;
@@ -354,18 +516,34 @@ inline std::vector<uint8_t> bakeSkinned(const pipeline::M2Model& model, const st
         sb.vertexOffset = static_cast<uint32_t>(vbytes.size());  // relative for now
         sb.vertexCount = static_cast<uint16_t>(strip.size());
         sb.weights = static_cast<uint8_t>(s.n);
-        for (int j = 0; j < s.n; ++j) sb.palette[j] = static_cast<uint8_t>(toSkin[s.slot[j]]);
-        const int stride = fmt::skinVertexStride(s.n);
+        if(preciseWeights)sb.reserved|=fmt::kSkinWeights16;
+        for(int j=0;j<s.n;++j)if(static_cast<size_t>(s.slot[j])>=nBonesM2)sb.reserved|=fmt::kSkinVirtualPalette;
+        std::array<fmt::SkinPaletteBlend,kSkinMaxPalette> palette{};
+        for (int j = 0; j < s.n; ++j) {
+            if(static_cast<size_t>(s.slot[j])<nBonesM2) {
+                sb.palette[j]=static_cast<uint8_t>(toSkin[s.slot[j]]);
+                palette[j].bones[0]=sb.palette[j];palette[j].weights[0]=255;
+            } else {
+                const auto& in=virtualInfluences[s.slot[j]-nBonesM2];
+                for(int k=0;k<in.n;++k){palette[j].bones[k]=static_cast<uint8_t>(toSkin[in.bone[k]]);palette[j].weights[k]=static_cast<uint8_t>(std::lround(in.w[k]*255));}
+                sb.palette[j]=palette[j].bones[0];
+            }
+        }
+        outPalettes.push_back(palette);
+        const int stride = fmt::skinVertexStride(s.n, floatPosition,sb.reserved);
         for (unsigned int li : strip) {
             const uint32_t v = src[li];
             const Influences& in = infl[v];
-            uint8_t q[4];
-            quantizeWeights(in, q);
+            uint16_t q[4];
+            quantizeWeightsUnit(in, q,preciseWeights?32768:128);
             std::vector<uint8_t> vert(static_cast<size_t>(stride), 0);
             for (int k = 0; k < in.n; ++k)
                 for (int j = 0; j < s.n; ++j)
-                    if (s.slot[j] == in.bone[k]) vert[j] = static_cast<uint8_t>(vert[j] + q[k]);
-            size_t o = static_cast<size_t>((s.n + 1) & ~1);
+                    if (s.slot[j] == in.bone[k]) {
+                        if(preciseWeights)std::memcpy(vert.data()+j*2,q+k,2);
+                        else vert[j]=static_cast<uint8_t>(vert[j]+q[k]);
+                    }
+            size_t o = static_cast<size_t>(fmt::skinWeightBytes(s.n,sb.reserved));
             const glm::vec2 uv = bind[v].texCoords[0];
             const glm::vec3 p = (bind[v].position - center) / half;
             auto w16 = [&](uint16_t x) {
@@ -375,8 +553,13 @@ inline std::vector<uint8_t> bakeSkinned(const pipeline::M2Model& model, const st
             w16(static_cast<uint16_t>(std::lround(std::clamp((uv.x - tmin.x) / trange.x, 0.0f, 1.0f) * 65535.0f)));
             w16(static_cast<uint16_t>(std::lround(std::clamp((uv.y - tmin.y) / trange.y, 0.0f, 1.0f) * 65535.0f)));
             w16(light[v]);
-            for (int a = 0; a < 3; ++a)
-                w16(static_cast<uint16_t>(static_cast<int16_t>(std::lround(std::clamp(p[a], -1.0f, 1.0f) * 32767.0f))));
+            if (floatPosition) {
+                const float xyz[] = {p.x, p.y, p.z};
+                std::memcpy(vert.data() + fmt::skinPositionOffset(s.n, true,sb.reserved), xyz, sizeof(xyz));
+            } else {
+                for (int a = 0; a < 3; ++a)
+                    w16(static_cast<uint16_t>(static_cast<int16_t>(std::lround(std::clamp(p[a], -1.0f, 1.0f) * 32767.0f))));
+            }
             vbytes.insert(vbytes.end(), vert.begin(), vert.end());
             info.emittedSource.push_back(v);
         }
@@ -394,9 +577,20 @@ inline std::vector<uint8_t> bakeSkinned(const pipeline::M2Model& model, const st
     std::vector<fmt::AnimSequence> seqs;
     std::vector<std::vector<Sample>> samples;  // [seq][bone * frames + k]
     float maxT = 1e-6f;
+    const bool floatScaleKeys=floatPosition||preciseWeights||!virtualInfluences.empty()||frameTimes;
     for (int si : sequenceIndices) {
         const auto& ms = model.sequences[si];
-        const uint32_t k = std::max<uint32_t>(1u, static_cast<uint32_t>(std::lround(ms.duration * rate / 1000.0f)));
+        const uint32_t base = std::min<uint32_t>(65534u, std::max<uint32_t>(1u,
+            static_cast<uint32_t>(std::lround(ms.duration * rate / 1000.0f))));
+        if(frameTimes) {
+            const auto& times=(*frameTimes)[seqs.size()];
+            if(times.size()<2||times.size()>65535||times.front()!=0||times.back()!=ms.duration)return {};
+            for(size_t i=1;i<times.size();++i)
+                if(times[i]<=times[i-1] && !(ms.duration==0&&times.size()==2&&times[i]==0))return {};
+        }
+        const uint32_t k = frameTimes?static_cast<uint32_t>((*frameTimes)[seqs.size()].size()-1):frameIntervals
+            ? std::clamp((*frameIntervals)[seqs.size()], 1u, 65534u)
+            : animationIntervals(model, si, base, skinBones, bind, used);
         fmt::AnimSequence as{};
         as.animId = static_cast<uint16_t>(ms.id);
         as.variation = static_cast<uint16_t>(ms.variationIndex);
@@ -414,11 +608,14 @@ inline std::vector<uint8_t> bakeSkinned(const pipeline::M2Model& model, const st
             const auto& bone = model.bones[skinBones[b]];
             namespace tr = rendering::m2_track;
             for (uint32_t f = 0; f < frames; ++f) {
-                const float t = static_cast<float>(ms.duration) * static_cast<float>(f) / static_cast<float>(frames - 1);
+                const float t = frameTimes?static_cast<float>((*frameTimes)[seqs.size()][f]):
+                    static_cast<float>(ms.duration) * static_cast<float>(f) / static_cast<float>(frames - 1);
                 Sample& x = sm[b * frames + f];
                 x.t = tr::sampleVec3(bone.translation, si, t, 0.0f, model.globalSequenceDurations, glm::vec3(0.0f));
                 x.r = tr::sampleQuat(bone.rotation, si, t, 0.0f, model.globalSequenceDurations);
                 x.s = tr::sampleVec3(bone.scale, si, t, 0.0f, model.globalSequenceDurations, glm::vec3(1.0f));
+                for (int a = 0; a < 3; ++a)
+                    floatScale |= std::fabs(x.s[a]) > 32767.0f / kSkinScaleOne;
                 if (f > 0 && glm::dot(x.r, sm[b * frames + f - 1].r) < 0.0f) x.r = -x.r;
                 for (int a = 0; a < 3; ++a) maxT = std::max(maxT, std::fabs(x.t[a]));
             }
@@ -426,17 +623,77 @@ inline std::vector<uint8_t> bakeSkinned(const pipeline::M2Model& model, const st
         seqs.push_back(as);
         samples.push_back(std::move(sm));
     }
-    const float tScale = maxT / 32767.0f;
+    // PSP: v4 float translations do not use this base. Keep compact tracks
+    // precise even when unrelated tracks contain enormous source translations;
+    // tracks outside its range are written as floats below, never clipped.
+    const float tScale = frameTimes&&compactTranslations?std::min(maxT/32767.0f,1.0f/64.0f):maxT/32767.0f;
     using Key = std::array<int16_t, 4>;
     std::vector<Key> keys;
     std::map<Key, uint32_t> constKeys;
+    std::map<std::array<int16_t, 8>, uint32_t> constScaleKeys;
+    std::map<std::vector<Key>,uint32_t> animatedKeys;
     auto q16 = [](float x) { return static_cast<int16_t>(std::lround(std::clamp(x, -32767.0f, 32767.0f))); };
     std::vector<fmt::BoneTrack> tracks;
     for (size_t si = 0; si < seqs.size(); ++si) {
         const uint32_t frames = seqs[si].frameCount;
         for (size_t b = 0; b < nb; ++b) {
             fmt::BoneTrack tr{fmt::kTrackNone, fmt::kTrackNone, fmt::kTrackNone};
+            bool compactT=compactTranslations&&(!floatTranslationTracks||
+                !floatTranslationTracks->count({sequenceIndices[si],skinBones[b]}));
+            if(compactT)for(uint32_t f=0;f<frames;++f)for(unsigned a=0;a<3;++a)
+                if(std::fabs(samples[si][b*frames+f].t[a])>32767.0f*tScale)compactT=false;
             for (int comp = 0; comp < 3; ++comp) {
+                // PSP: large authored scales (e.g. growing effect meshes) cannot
+                // fit v1's signed 3.12 fixed point. Preserve their float values;
+                // two key slots per frame keep all other offsets/layouts intact.
+                if ((comp == 0 && floatRotation) || (comp == 2 && floatScaleKeys) || (comp == 1 && frameTimes&&!compactT)) {
+                    std::vector<std::array<int16_t, 8>> sk(frames);
+                    bool constant = true;
+                    for (uint32_t f = 0; f < frames; ++f) {
+                        const auto& sample=samples[si][b*frames+f];
+                        const glm::vec3 scale=comp==0?glm::vec3(sample.r.x,sample.r.y,sample.r.z):comp==2?sample.s:sample.t;
+                        const float xyz[] = {scale.x,scale.y,scale.z,comp==0?sample.r.w:0.0f};
+                        std::memcpy(sk[f].data(), xyz, sizeof(xyz));
+                        if (f > 0 && sk[f] != sk[0]) constant = false;
+                    }
+                    const float one[] = {comp==2?1.0f:0.0f,comp==2?1.0f:0.0f,comp==2?1.0f:0.0f,comp==0?1.0f:0.0f};
+                    std::array<int16_t, 8> def{};
+                    std::memcpy(def.data(), one, sizeof(one));
+                    if (constant && sk[0] == def) continue;
+                    auto appendScale = [&](const std::array<int16_t, 8>& scale) {
+                        Key lo, hi;
+                        std::copy_n(scale.begin(), 4, lo.begin());
+                        std::copy_n(scale.begin() + 4, 4, hi.begin());
+                        keys.push_back(lo);
+                        keys.push_back(hi);
+                    };
+                    if (constant) {
+                        auto [it, inserted] = constScaleKeys.emplace(sk[0], static_cast<uint32_t>(keys.size()));
+                        if (inserted) appendScale(sk[0]);
+                        (comp==0?tr.rotation:comp==2?tr.scale:tr.translation) = it->second;
+                    } else {
+                        std::vector<Key> flat;flat.reserve(sk.size()*2);
+                        for(const auto& scale:sk) {
+                            Key lo,hi;std::copy_n(scale.begin(),4,lo.begin());std::copy_n(scale.begin()+4,4,hi.begin());
+                            flat.push_back(lo);flat.push_back(hi);
+                        }
+                        auto [it,inserted]=animatedKeys.emplace(flat,static_cast<uint32_t>(keys.size()));
+                        if(inserted)keys.insert(keys.end(),flat.begin(),flat.end());
+                        (comp==0?tr.rotation:comp==2?tr.scale:tr.translation)=it->second|fmt::kTrackAnimated;
+                    }
+                    continue;
+                }
+                uint16_t translationExponents=0;glm::vec3 translationStep(tScale);
+                if(comp==1&&frameTimes&&compactT) {
+                    glm::vec3 maximum(0);
+                    for(uint32_t f=0;f<frames;++f)maximum=glm::max(maximum,glm::abs(samples[si][b*frames+f].t));
+                    for(int a=0;a<3;++a) {
+                        unsigned exponent=0;
+                        while(exponent<31&&maximum[a]<=std::ldexp(tScale*32767.0f,-static_cast<int>(exponent+1)))++exponent;
+                        translationExponents|=static_cast<uint16_t>(exponent<<(a*5));
+                        translationStep[a]=std::ldexp(tScale,-static_cast<int>(exponent));
+                    }
+                }
                 std::vector<Key> ks(frames);
                 for (uint32_t f = 0; f < frames; ++f) {
                     const Sample& x = samples[si][b * frames + f];
@@ -444,7 +701,8 @@ inline std::vector<uint8_t> bakeSkinned(const pipeline::M2Model& model, const st
                         ks[f] = {q16(x.r.x * 32767.0f), q16(x.r.y * 32767.0f), q16(x.r.z * 32767.0f),
                                  q16(x.r.w * 32767.0f)};
                     else if (comp == 1)
-                        ks[f] = {q16(x.t.x / tScale), q16(x.t.y / tScale), q16(x.t.z / tScale), 0};
+                        ks[f] = {q16(x.t.x / translationStep.x), q16(x.t.y / translationStep.y), q16(x.t.z / translationStep.z),
+                            static_cast<int16_t>(translationExponents)};
                     else
                         ks[f] = {q16(x.s.x * kSkinScaleOne), q16(x.s.y * kSkinScaleOne), q16(x.s.z * kSkinScaleOne), 0};
                 }
@@ -455,7 +713,8 @@ inline std::vector<uint8_t> bakeSkinned(const pipeline::M2Model& model, const st
                                                       : Key{4096, 4096, 4096, 0};
                 const Key defNeg{0, 0, 0, -32767};
                 uint32_t ref = fmt::kTrackNone;
-                if (constant && (ks[0] == def || (comp == 0 && ks[0] == defNeg))) {
+                const bool compactZero=comp==1&&frameTimes&&compactT&&ks[0][0]==0&&ks[0][1]==0&&ks[0][2]==0;
+                if (constant && (ks[0] == def || compactZero || (comp == 0 && ks[0] == defNeg))) {
                     ref = fmt::kTrackNone;
                 } else if (constant) {
                     auto it = constKeys.find(ks[0]);
@@ -465,9 +724,14 @@ inline std::vector<uint8_t> bakeSkinned(const pipeline::M2Model& model, const st
                     }
                     ref = it->second;
                 } else {
-                    ref = static_cast<uint32_t>(keys.size()) | fmt::kTrackAnimated;
-                    keys.insert(keys.end(), ks.begin(), ks.end());
+                    // PSP: aliases/related sequences often contain identical
+                    // motion. Share exact bytes rather than spending the PSP's
+                    // animation budget on another copy of the same track.
+                    auto [it,inserted]=animatedKeys.emplace(ks,static_cast<uint32_t>(keys.size()));
+                    if(inserted)keys.insert(keys.end(),ks.begin(),ks.end());
+                    ref=it->second|fmt::kTrackAnimated;
                 }
+                if(comp==1&&frameTimes&&compactT&&ref!=fmt::kTrackNone)ref|=fmt::kTrackCompactTranslation;
                 (comp == 0 ? tr.rotation : comp == 1 ? tr.translation : tr.scale) = ref;
             }
             tracks.push_back(tr);
@@ -477,7 +741,11 @@ inline std::vector<uint8_t> bakeSkinned(const pipeline::M2Model& model, const st
     // Assemble.
     fmt::SkinHeader h{};
     std::memcpy(h.magic, animOnly ? "WSKA" : "WSKN", 4);
-    h.version = fmt::kSkinFormatVersion;
+    h.version = frameTimes?fmt::kSkinTimedVersion:preciseWeights||!virtualInfluences.empty()||forceFloatPosition ? fmt::kSkinPrecisionVersion :
+        floatScale ? fmt::kSkinFloatScaleVersion : fmt::kSkinFormatVersion;
+    if (floatPosition) h.flags |= fmt::kSkinFloatPosition;
+    if(slerpRotation)h.flags|=fmt::kSkinSlerpRotation;
+    if(floatRotation)h.flags|=fmt::kSkinFloatRotation;
     h.boneCount = static_cast<uint16_t>(nb);
     h.sequenceCount = static_cast<uint16_t>(seqs.size());
     h.batchCount = animOnly ? 0 : static_cast<uint16_t>(batches.size());
@@ -494,12 +762,26 @@ inline std::vector<uint8_t> bakeSkinned(const pipeline::M2Model& model, const st
     h.radius = radius;
     h.translationScale = tScale;
     h.sampleRate = rate;
-    blob.resize(sizeof(h));
+    blob.resize(sizeof(h)+(frameTimes?8u:0u));
     auto section = [&](const void* p, size_t bytes) {
         alignTo(blob, 4);
         const uint32_t off = static_cast<uint32_t>(blob.size());
         blob.insert(blob.end(), static_cast<const uint8_t*>(p), static_cast<const uint8_t*>(p) + bytes);
         return off;
+    };
+    size_t timingBytes=0;
+    auto appendTiming=[&]() {
+        if(!frameTimes)return;
+        std::vector<uint8_t> table={'W','T','I','M'};put<uint32_t>(table,1);put<uint32_t>(table,static_cast<uint32_t>(seqs.size()));
+        table.resize(12+seqs.size()*8,0);const uint32_t at=section(table.data(),table.size());
+        timingBytes=8+table.size();
+        for(size_t s=0;s<seqs.size();++s) {
+            const auto& times=(*frameTimes)[s];const uint32_t offset=section(times.data(),times.size()*4u);
+            const uint32_t count=static_cast<uint32_t>(times.size());
+            std::memcpy(blob.data()+at+12+s*8,&offset,4);std::memcpy(blob.data()+at+16+s*8,&count,4);
+            timingBytes+=times.size()*4u;
+        }
+        std::memcpy(blob.data()+sizeof(h),&at,4);
     };
     std::vector<fmt::SkinBone> bonesOut(nb);
     for (size_t b = 0; b < nb; ++b) {
@@ -515,12 +797,13 @@ inline std::vector<uint8_t> bakeSkinned(const pipeline::M2Model& model, const st
         h.trackOffset = section(tracks.data(), tracks.size() * sizeof(fmt::BoneTrack));
         h.keyOffset = section(keys.data(), keys.size() * sizeof(Key));
         h.keyCount = static_cast<uint32_t>(keys.size());
+        appendTiming();
         alignTo(blob, 4);
         std::memcpy(blob.data(), &h, sizeof(h));
         info.bones = nb;
         info.sequences = seqs.size();
         info.keys = keys.size();
-        info.animBytes = tracks.size() * sizeof(fmt::BoneTrack) + keys.size() * sizeof(Key);
+        info.animBytes = tracks.size() * sizeof(fmt::BoneTrack) + keys.size() * sizeof(Key)+timingBytes;
         return blob;
     }
     std::vector<fmt::ModelBatch> mbs(batches.size());
@@ -537,6 +820,15 @@ inline std::vector<uint8_t> bakeSkinned(const pipeline::M2Model& model, const st
     h.trackOffset = section(tracks.data(), tracks.size() * sizeof(fmt::BoneTrack));
     h.keyOffset = section(keys.data(), keys.size() * sizeof(Key));
     h.keyCount = static_cast<uint32_t>(keys.size());
+    if(!virtualInfluences.empty()) {
+        h.flags|=fmt::kSkinHasVirtualPalette;
+        fmt::SkinPaletteHeader ph{};std::memcpy(ph.magic,"WVPL",4);ph.version=1;ph.slots=kSkinMaxPalette;
+        ph.subBatchCount=static_cast<uint32_t>(outSubs.size());
+        std::vector<uint8_t> table;const auto* pp=reinterpret_cast<const uint8_t*>(&ph);table.insert(table.end(),pp,pp+sizeof(ph));
+        const auto* vp=reinterpret_cast<const uint8_t*>(outPalettes.data());table.insert(table.end(),vp,vp+outPalettes.size()*sizeof(outPalettes[0]));
+        h.reserved[2]=section(table.data(),table.size());
+    }
+    appendTiming();
     alignTo(blob, 16);
     const uint32_t vbase = static_cast<uint32_t>(blob.size());
     blob.insert(blob.end(), vbytes.begin(), vbytes.end());
@@ -553,7 +845,7 @@ inline std::vector<uint8_t> bakeSkinned(const pipeline::M2Model& model, const st
     info.subBatches = outSubs.size();
     info.keys = keys.size();
     info.vertexBytes = vbytes.size();
-    info.animBytes = tracks.size() * sizeof(fmt::BoneTrack) + keys.size() * sizeof(Key);
+    info.animBytes = tracks.size() * sizeof(fmt::BoneTrack) + keys.size() * sizeof(Key)+timingBytes;
     return blob;
 }
 
@@ -564,7 +856,8 @@ inline std::vector<uint8_t> bakeSkinned(const pipeline::M2Model& model, const st
 // time, all M2 bones). Times off the baked frame grid measure the resampling.
 struct SkinVerifyResult {
     double maxErr = 0.0, sumSq = 0.0;
-    size_t samples = 0;
+    size_t samples = 0, probeTimes = 0, uncertaintySamples = 0;
+    float rawMaxErr=0;size_t clippedSamples=0; // PSP: explicit scoped-proof metrics
     std::string worst;
 };
 
@@ -579,25 +872,622 @@ inline void appendTri(std::vector<uint8_t>& dump, const glm::vec3& a, const glm:
 
 inline glm::vec3 geSkin(const fmt::SkinView& view, const std::vector<fmt::BoneMatrix>& pose,
                         const fmt::SkinSubBatch& sb, const uint8_t* vert) {
-    int16_t xyz[3];
-    std::memcpy(xyz, vert + ((sb.weights + 1) & ~1) + 6, 6);
-    const glm::vec3 pn(xyz[0] / 32768.0f, xyz[1] / 32768.0f, xyz[2] / 32768.0f);
+    glm::vec3 pn;
+    const bool floatPosition = (view.h->flags & fmt::kSkinFloatPosition) != 0;
+    if (floatPosition) {
+        float xyz[3];
+        std::memcpy(xyz, vert + fmt::skinPositionOffset(sb.weights, true,sb.reserved), sizeof(xyz));
+        pn = glm::vec3(xyz[0], xyz[1], xyz[2]);
+    } else {
+        int16_t xyz[3];
+        std::memcpy(xyz, vert + fmt::skinPositionOffset(sb.weights, false,sb.reserved), sizeof(xyz));
+        pn = glm::vec3(xyz[0] / 32768.0f, xyz[1] / 32768.0f, xyz[2] / 32768.0f);
+    }
     glm::vec3 out(0.0f);
     for (int j = 0; j < sb.weights; ++j) {
-        const float w = vert[j] / kSkinWeightOne;
+        uint16_t weight=vert[j];
+        if(sb.reserved&fmt::kSkinWeights16)std::memcpy(&weight,vert+j*2,2);
+        const float w = weight / ((sb.reserved&fmt::kSkinWeights16)?32768.0f:kSkinWeightOne);
         if (w == 0.0f) continue;
         float g[12];
-        fmt::geBoneMatrix(pose[sb.palette[j]], *view.h, g);
+        const auto* blend=view.paletteBlend(sb,j);
+        if(blend) {
+            fmt::BoneMatrix matrix;
+            fmt::skinBlendPaletteMatrix(*blend,pose[0].m,12,matrix.m,12);
+            fmt::geBoneMatrix(matrix,*view.h,g);
+        } else fmt::geBoneMatrix(pose[sb.palette[j]], *view.h, g);
         for (int r = 0; r < 3; ++r) out[r] += w * (g[r] * pn.x + g[3 + r] * pn.y + g[6 + r] * pn.z + g[9 + r]);
     }
     return out;
+}
+
+// PSP: measure the actual packed path, so weight/position quantization cannot
+// be mistaken for motion that would benefit from more animation keys.
+inline std::set<float> skinProbeTimes(const fmt::SkinView& view,uint32_t sequence,
+                                     const pipeline::M2Model& model,int m2Sequence,bool includeAuthored,
+                                     const std::set<float>* pinnedTimes=nullptr,
+                                     const SkinVisibilityPolicy* visibility=nullptr) {
+    std::set<float> fractions={0,.13f,.37f,.5f,.71f,.93f,.999f,1};
+    for(int k=1;k<6;++k)fractions.insert(k/6.0f);
+    std::set<float> times;
+    for(float f:fractions)times.insert(view.sequences[sequence].durationMs*f);
+    if(includeAuthored)
+        for(uint32_t b=0;b<view.h->boneCount;++b)
+            for(const auto* track:{&model.bones[view.bones[b].m2Bone].translation,
+                                  &model.bones[view.bones[b].m2Bone].rotation,&model.bones[view.bones[b].m2Bone].scale}) {
+                if(track->globalSequence>=0||m2Sequence<0||static_cast<size_t>(m2Sequence)>=track->sequences.size())continue;
+                for(uint32_t t:track->sequences[m2Sequence].timestamps)
+                    if(t<=view.sequences[sequence].durationMs)times.insert(static_cast<float>(t));
+            }
+    if(includeAuthored) {
+        const auto* frameTimes=view.sequenceTimes(sequence);
+        const uint32_t frames=view.sequences[sequence].frameCount;
+        for(uint32_t f=0;f<frames;++f) {
+            const float t=frameTimes?static_cast<float>(frameTimes[f]):
+                static_cast<float>(view.sequences[sequence].durationMs)*f/(frames-1);
+            times.insert(t);
+            if(f) {
+                const float previous=frameTimes?static_cast<float>(frameTimes[f-1]):
+                    static_cast<float>(view.sequences[sequence].durationMs)*(f-1)/(frames-1);
+                for(float part:{.25f,.5f,.75f})times.insert(previous+(t-previous)*part);
+            }
+        }
+    }
+    // PSP: reproducible legacy30Hz quarters replace the private old-pack time
+    // dump. Neighbor all source/candidate/legacy anchors before unioning older
+    // pins, so repeated coarsening does not grow nextafter chains indefinitely.
+    if(visibility&&includeAuthored) {
+        const float duration=static_cast<float>(view.sequences[sequence].durationMs);
+        const uint32_t intervals=std::min<uint32_t>(65534,std::max<uint32_t>(1,
+            static_cast<uint32_t>(std::lround(duration*30.0f/1000.0f))));
+        for(uint32_t f=0;f<=intervals;++f) {
+            const float time=duration*f/intervals;times.insert(time);
+            if(f) {
+                const float previous=duration*(f-1)/intervals;
+                for(float fraction:{.25f,.5f,.75f})times.insert(previous+(time-previous)*fraction);
+            }
+        }
+        const auto anchors=times;
+        for(float time:anchors) {
+            const float before=std::nextafter(time,-std::numeric_limits<float>::infinity());
+            const float after=std::nextafter(time,std::numeric_limits<float>::infinity());
+            if(before>=0)times.insert(before);
+            if(after<=duration)times.insert(after);
+        }
+    }
+    if(pinnedTimes)times.insert(pinnedTimes->begin(),pinnedTimes->end());
+    return times;
+}
+
+// PSP: opt-in only after source AND consumer qualification. Every point stays
+// absolute; only whole triangles jointly outside the audited envelope can skip.
+inline float skinScopedSequenceError(const fmt::SkinView& view,uint32_t sequence,
+        const pipeline::M2Model& model,int m2Sequence,const std::vector<pipeline::M2Vertex>& bind,
+        const std::vector<uint32_t>& emittedSource,bool includeAuthored,std::set<uint16_t>* badBones,
+        size_t* vertexSamples,size_t* probeCount,double* sumSq,std::string* worst,
+        const std::set<float>* pinnedTimes,std::set<float>* badTimes,const SkinVisibilityPolicy& policy,
+        float* rawMaximum,size_t* clippedSamples) {
+    namespace visibility=skin_visibility;
+    struct DrawVertex {const fmt::SkinSubBatch* batch;const uint8_t* data;};
+    std::vector<DrawVertex> draw;std::vector<visibility::IndexTriangle> triangles;
+    for(uint32_t b=0;b<view.h->batchCount;++b)for(uint32_t k=0;k<view.batches[b].indexCount;++k) {
+        const auto& sb=view.subBatches[view.batches[b].indexStart+k];const size_t first=draw.size();
+        const int stride=fmt::skinVertexStride(sb.weights,(view.h->flags&fmt::kSkinFloatPosition)!=0,sb.reserved);
+        for(uint32_t i=0;i<sb.vertexCount;++i)draw.push_back({&sb,view.vertices(sb)+i*stride});
+        for(uint32_t i=2;i<sb.vertexCount;++i)triangles.push_back({first+i-2,first+i-1,first+i});
+    }
+    if(draw.size()!=emittedSource.size())return 1e30f;
+    for(uint32_t vi:emittedSource)if(vi>=bind.size())return 1e30f;
+    const auto topology=visibility::prepareTopology(draw.size(),triangles,emittedSource);
+    if(!topology.valid)return 1e30f;
+    const auto times=skinProbeTimes(view,sequence,model,m2Sequence,includeAuthored,pinnedTimes,&policy);
+    const std::vector<float> values(times.begin(),times.end());
+    struct Result {float error=0,raw=0;size_t samples=0,clipped=0;double sum=0;bool bad=false;
+        std::string worst;std::set<uint16_t> bones;};
+    std::vector<Result> results(values.size());std::atomic<size_t> next{0};std::atomic<bool> failed{false};
+    auto worker=[&]() {
+        try {
+            visibility::PoseWorkspace workspace;
+            std::vector<fmt::BoneMatrix> pose(view.h->boneCount);std::vector<glm::mat4> reference;
+            std::vector<glm::vec3> source(bind.size());std::vector<uint8_t> ready(bind.size());
+            std::vector<visibility::Point3> expected(draw.size()),actual(draw.size());
+            for(size_t index;(index=next.fetch_add(1))<values.size();) {
+                const float time=values[index];auto& result=results[index];
+                fmt::evaluatePose(view,sequence,time,pose.data());poseBones(model,m2Sequence,time,reference);
+                std::fill(ready.begin(),ready.end(),0);
+                for(size_t i=0;i<draw.size();++i) {
+                    const auto vi=emittedSource[i];
+                    if(!ready[vi]){if(!skinVertex(bind[vi],reference,source[vi],nullptr))source[vi]=bind[vi].position;ready[vi]=1;}
+                    const auto point=geSkin(view,pose,*draw[i].batch,draw[i].data);
+                    expected[i]={source[vi].x,source[vi].y,source[vi].z};actual[i]={point.x,point.y,point.z};
+                }
+                const auto& proof=visibility::classifyMeshFast(expected,actual,topology,policy.envelope,workspace);
+                if(!proof.inputValid){result.error=1e30f;result.worst="invalid visibility inputs";continue;}
+                for(size_t i=0;i<draw.size();++i) {
+                    const auto vi=emittedSource[i];const auto& vertex=bind[vi];
+                    const glm::vec3 got(static_cast<float>(actual[i][0]),static_cast<float>(actual[i][1]),static_cast<float>(actual[i][2]));
+                    const float distance=glm::length(got-source[vi]);
+                    if(!std::isfinite(distance)){result.error=1e30f;result.worst="nonfinite visibility error";break;}
+                    result.raw=std::max(result.raw,distance);
+                    if(proof.canSkipInstance[i]){++result.clipped;continue;}
+                    ++result.samples;result.sum+=static_cast<double>(distance)*distance;
+                    if(distance>result.error)result.worst="anim "+std::to_string(view.sequences[sequence].animId)+
+                        " t="+std::to_string(time)+" vertex "+std::to_string(vi);
+                    result.error=std::max(result.error,distance);result.bad|=distance>.02f;
+                    if(distance>.02f&&badBones)for(unsigned k=0;k<4;++k)
+                        if(vertex.boneWeights[k]&&vertex.boneIndices[k]<model.bones.size())result.bones.insert(vertex.boneIndices[k]);
+                }
+                for(const auto& attachment:model.attachments) {
+                    uint32_t bone=0;while(bone<view.h->boneCount&&view.bones[bone].m2Bone!=attachment.bone)++bone;
+                    if(bone==view.h->boneCount||attachment.bone>=reference.size())continue;
+                    const auto& matrix=pose[bone];const auto p=attachment.position;glm::vec3 got;
+                    for(unsigned r=0;r<3;++r)got[r]=matrix.m[r]*p.x+matrix.m[r+3]*p.y+matrix.m[r+6]*p.z+matrix.m[r+9];
+                    const float distance=glm::length(got-glm::vec3(reference[attachment.bone]*glm::vec4(p,1)));
+                    if(!std::isfinite(distance)){result.error=1e30f;result.worst="nonfinite point error";break;}
+                    result.raw=std::max(result.raw,distance);
+                    if(distance>result.error)result.worst="point "+std::to_string(attachment.id)+" anim "+
+                        std::to_string(view.sequences[sequence].animId)+" t="+std::to_string(time);
+                    result.error=std::max(result.error,distance);result.bad|=distance>.02f;
+                    if(distance>.02f&&badBones)result.bones.insert(attachment.bone);
+                }
+            }
+        } catch(...) {failed.store(true);}
+    };
+    // Only this one qualified source adds bounded host workers. State is local
+    // per call/thread; chronological reduction keeps deterministic tie ordering.
+    std::vector<std::thread> workers;
+    try {for(size_t i=1;i<std::min<size_t>(4,values.size());++i)workers.emplace_back(worker);}
+    catch(...){for(auto& thread:workers)thread.join();throw;}
+    worker();for(auto& thread:workers)thread.join();
+    if(failed.load()){if(worst)*worst="visibility worker failed";return 1e30f;}
+    if(vertexSamples)*vertexSamples=0;
+    if(probeCount)*probeCount=values.size();
+    if(sumSq)*sumSq=0;
+    if(rawMaximum)*rawMaximum=0;
+    if(clippedSamples)*clippedSamples=0;
+    float error=0;
+    for(size_t i=0;i<results.size();++i) {
+        const auto& result=results[i];
+        if(vertexSamples)*vertexSamples+=result.samples;
+        if(sumSq)*sumSq+=result.sum;
+        if(rawMaximum)*rawMaximum=std::max(*rawMaximum,result.raw);
+        if(clippedSamples)*clippedSamples+=result.clipped;
+        if(badBones)badBones->insert(result.bones.begin(),result.bones.end());
+        if(result.bad&&badTimes)badTimes->insert(values[i]);
+        if(result.error>error){error=result.error;if(worst)*worst=result.worst;}
+    }
+    return error;
+}
+
+inline float skinSequenceError(const fmt::SkinView& view, uint32_t sequence,
+                               const pipeline::M2Model& model, int m2Sequence,
+                               const std::vector<pipeline::M2Vertex>& bind,
+                               const std::vector<uint32_t>& emittedSource, bool includeAuthored=false,
+                               std::set<uint16_t>* badBones=nullptr,size_t* vertexSamples=nullptr,
+                               size_t* probeCount=nullptr,double* sumSq=nullptr,std::string* worst=nullptr,
+                               const std::set<float>* pinnedTimes=nullptr,std::set<float>* badTimes=nullptr,
+                               const SkinVisibilityPolicy* visibility=nullptr,
+                               float* rawMaximum=nullptr,size_t* clippedSamples=nullptr) {
+    if(visibility)return skinScopedSequenceError(view,sequence,model,m2Sequence,bind,emittedSource,
+        includeAuthored,badBones,vertexSamples,probeCount,sumSq,worst,pinnedTimes,badTimes,*visibility,
+        rawMaximum,clippedSamples);
+    std::vector<fmt::BoneMatrix> pose(view.h->boneCount);std::vector<glm::mat4> reference;
+    const auto times=skinProbeTimes(view,sequence,model,m2Sequence,includeAuthored,pinnedTimes);
+    if(vertexSamples)*vertexSamples=0;
+    if(probeCount)*probeCount=times.size();
+    if(sumSq)*sumSq=0;
+    float error=0;
+    for(float time:times) {
+        fmt::evaluatePose(view,sequence,time,pose.data());poseBones(model,m2Sequence,time,reference);
+        size_t emitted=0;
+        for(uint32_t b=0;b<view.h->batchCount;++b)
+            for(uint32_t k=0;k<view.batches[b].indexCount;++k) {
+                const auto& sb=view.subBatches[view.batches[b].indexStart+k];
+                const int stride=fmt::skinVertexStride(sb.weights,(view.h->flags&fmt::kSkinFloatPosition)!=0,sb.reserved);
+                for(uint32_t i=0;i<sb.vertexCount;++i,++emitted) {
+                    const auto& v=bind[emittedSource[emitted]];glm::vec3 want;
+                    if(!skinVertex(v,reference,want,nullptr))want=v.position;
+                    const float distance=glm::length(geSkin(view,pose,sb,view.vertices(sb)+i*stride)-want);
+                    if(vertexSamples)++*vertexSamples;
+                    if(sumSq)*sumSq+=static_cast<double>(distance)*distance;
+                    if(distance>error&&worst)*worst="anim "+std::to_string(view.sequences[sequence].animId)+
+                        " t="+std::to_string(time)+" vertex "+std::to_string(emittedSource[emitted]);
+                    error=std::max(error,distance);
+                    if(distance>.02f&&badTimes)badTimes->insert(time);
+                    if(distance>.02f&&badBones)
+                        for(int k=0;k<4;++k)if(v.boneWeights[k]&&v.boneIndices[k]<model.bones.size())badBones->insert(v.boneIndices[k]);
+                }
+            }
+        for(const auto& attachment:model.attachments) {
+            uint32_t bone=0;while(bone<view.h->boneCount&&view.bones[bone].m2Bone!=attachment.bone)++bone;
+            if(bone==view.h->boneCount||attachment.bone>=reference.size())continue;
+            const auto& b=pose[bone];const auto p=attachment.position;glm::vec3 actual;
+            for(int r=0;r<3;++r)actual[r]=b.m[r]*p.x+b.m[3+r]*p.y+b.m[6+r]*p.z+b.m[9+r];
+            const float distance=glm::length(actual-glm::vec3(reference[attachment.bone]*glm::vec4(p,1)));
+            if(distance>error&&worst)*worst="point "+std::to_string(attachment.id)+" anim "+
+                std::to_string(view.sequences[sequence].animId)+" t="+std::to_string(time);
+            error=std::max(error,distance);if(distance>.02f&&badBones)badBones->insert(attachment.bone);
+            if(distance>.02f&&badTimes)badTimes->insert(time);
+        }
+    }
+    return error;
+}
+
+// PSP: only retain a denser sequence when the packed baseline actually fails
+// and the extra keys measurably improve it. The full converters' existing
+// animation caps therefore do not lose sequences for irrelevant refinement.
+inline std::vector<uint8_t> bakeSkinned(const pipeline::M2Model& model, const std::vector<pipeline::M2Vertex>& bind,
+                                       const std::vector<SkinBatchIn>& batches,
+                                       const std::vector<int>& sequenceIndices, int standSeq, float rate,
+                                       SkinBakeInfo& info, bool animOnly=false,
+                                       const std::vector<uint16_t>* keepBones=nullptr,
+                                       const std::vector<uint32_t>* frameIntervals=nullptr,
+                                       size_t animationBudget=384u*1024u,
+                                       const SkinVisibilityPolicy* visibility=nullptr) {
+    auto measure=[&](const fmt::SkinView& view,uint32_t sequence,const pipeline::M2Model& source,int m2Sequence,
+                     const std::vector<pipeline::M2Vertex>& vertices,const std::vector<uint32_t>& emitted,
+                     bool authored=false,std::set<uint16_t>* bones=nullptr,size_t* samples=nullptr,
+                     size_t* probes=nullptr,double* sum=nullptr,std::string* worst=nullptr,
+                     const std::set<float>* pins=nullptr,std::set<float>* bad=nullptr) {
+        return skinSequenceError(view,sequence,source,m2Sequence,vertices,emitted,authored,bones,samples,
+                                 probes,sum,worst,pins,bad,visibility);
+    };
+    auto probeTimes=[&](const fmt::SkinView& view,uint32_t sequence,const pipeline::M2Model& source,int m2Sequence,
+                        bool authored,const std::set<float>* pins=nullptr) {
+        return skinProbeTimes(view,sequence,source,m2Sequence,authored,pins,visibility);
+    };
+    // PSP: animationBudget is the target for the bounded frame-removal pass;
+    // zero skips that pass (characters). The existing 384-KiB representation
+    // heuristics still prefer compact keys/grids when they preserve accuracy.
+    // The caller separately enforces its actual allocation cap.
+    auto candidate=bakeSkinnedRaw(model,bind,batches,sequenceIndices,standSeq,rate,info,false,keepBones,frameIntervals);
+    fmt::SkinView dense;if(!dense.init(candidate.data(),static_cast<uint32_t>(candidate.size())))return {};
+    std::vector<uint32_t> base(sequenceIndices.size()),chosen(sequenceIndices.size());bool refined=false;
+    for(size_t s=0;s<sequenceIndices.size();++s) {
+        const auto duration=model.sequences[sequenceIndices[s]].duration;
+        base[s]=frameIntervals?(*frameIntervals)[s]:std::min<uint32_t>(65534,std::max<uint32_t>(1,static_cast<uint32_t>(std::lround(duration*rate/1000.0f))));
+        chosen[s]=dense.sequences[s].frameCount-1;
+        refined|=chosen[s]!=base[s];
+    }
+    if(refined) {
+        SkinBakeInfo baseInfo;
+        const auto baseline=bakeSkinnedRaw(model,bind,batches,sequenceIndices,standSeq,rate,baseInfo,false,keepBones,&base);
+        fmt::SkinView original;if(!original.init(baseline.data(),static_cast<uint32_t>(baseline.size())))return {};
+        for(size_t s=0;s<sequenceIndices.size();++s) {
+            if(chosen[s]==base[s])continue;
+            const float before=measure(original,s,model,sequenceIndices[s],bind,baseInfo.emittedSource);
+            const float after=measure(dense,s,model,sequenceIndices[s],bind,info.emittedSource);
+            if(before<=.02f||(after>.02f&&after>=before*.8f))chosen[s]=base[s];
+        }
+        // PSP: the unquantized 0.01-yard probe is deliberately conservative.
+        // Prefer the smaller 60/120-Hz grid whenever the actual packed output
+        // already meets 0.020; do not spend RAM chasing an unnecessary margin.
+        for(uint32_t multiple:{2u,4u}) {
+            auto trial=chosen;bool smaller=false;
+            for(size_t s=0;s<trial.size();++s) {
+                trial[s]=std::min(trial[s],base[s]*multiple);smaller|=trial[s]<chosen[s];
+            }
+            if(!smaller)continue;
+            SkinBakeInfo trialInfo;
+            const auto trialBlob=bakeSkinnedRaw(model,bind,batches,sequenceIndices,standSeq,rate,trialInfo,false,keepBones,&trial);
+            fmt::SkinView probe;if(!probe.init(trialBlob.data(),static_cast<uint32_t>(trialBlob.size())))return {};
+            for(size_t s=0;s<trial.size();++s)
+                if(trial[s]<chosen[s]&&measure(probe,s,model,sequenceIndices[s],bind,trialInfo.emittedSource)<=.02f)
+                    chosen[s]=trial[s];
+        }
+        candidate=bakeSkinnedRaw(model,bind,batches,sequenceIndices,standSeq,rate,info,false,keepBones,&chosen);
+        if(!dense.init(candidate.data(),static_cast<uint32_t>(candidate.size())))return {};
+    }
+    const bool needVirtual=info.trimmedInfluences!=0;
+    bool needPrecision=needVirtual;
+    std::vector<float> errors(sequenceIndices.size());
+    for(size_t s=0;s<sequenceIndices.size();++s) {
+        errors[s]=measure(dense,s,model,sequenceIndices[s],bind,info.emittedSource);
+        needPrecision|=errors[s]>.02f;
+    }
+    bool precise=false,virtuals=false,floatPositions=false;
+    if(needPrecision) {
+        SkinBakeInfo accurateInfo;
+        auto accurate=bakeSkinnedRaw(model,bind,batches,sequenceIndices,standSeq,rate,accurateInfo,false,keepBones,&chosen,true,needVirtual);
+        fmt::SkinView check;if(!check.init(accurate.data(),static_cast<uint32_t>(accurate.size())))return {};
+        bool improves=needVirtual,unresolved=false;
+        std::vector<float> accurateErrors(sequenceIndices.size());
+        for(size_t s=0;s<sequenceIndices.size();++s)
+            if(errors[s]>.02f) {
+                const float after=measure(check,s,model,sequenceIndices[s],bind,accurateInfo.emittedSource);
+                accurateErrors[s]=after;unresolved|=after>.02f;
+                if(after<=.02f||after<errors[s]*.8f)improves=true;
+            }
+        if(unresolved&&!(check.h->flags&fmt::kSkinFloatPosition)) {
+            SkinBakeInfo positionInfo;
+            auto positionBlob=bakeSkinnedRaw(model,bind,batches,sequenceIndices,standSeq,rate,positionInfo,false,keepBones,&chosen,true,needVirtual,true);
+            fmt::SkinView position;if(!position.init(positionBlob.data(),static_cast<uint32_t>(positionBlob.size())))return {};
+            bool positionHelps=false;
+            for(size_t s=0;s<sequenceIndices.size();++s)if(accurateErrors[s]>.02f) {
+                const float after=measure(position,s,model,sequenceIndices[s],bind,positionInfo.emittedSource);
+                positionHelps|=after<=.02f||after<accurateErrors[s]*.8f;
+            }
+            if(positionHelps){accurate=std::move(positionBlob);accurateInfo=std::move(positionInfo);floatPositions=true;improves=true;}
+        }
+        if(improves){candidate=std::move(accurate);info=std::move(accurateInfo);precise=true;virtuals=needVirtual;}
+    }
+    fmt::SkinView current;if(!current.init(candidate.data(),static_cast<uint32_t>(candidate.size())))return {};
+    bool timingNeeded=false,realRefinement=false;
+    std::vector<float> currentErrors(sequenceIndices.size());
+    for(size_t s=0;s<sequenceIndices.size();++s) {
+        currentErrors[s]=measure(current,s,model,sequenceIndices[s],bind,info.emittedSource,true);
+        timingNeeded|=currentErrors[s]>.02f;realRefinement|=chosen[s]>base[s];
+    }
+    timingNeeded|=realRefinement&&info.animBytes>384u*1024u;
+    // PSP: this is a host bake-work guard, not a runtime allocation limit.
+    // Existing large character skeletons may already exceed the small-model
+    // threshold; allow bounded refinement relative to their existing poses.
+    uint64_t existingSamples=0;
+    for(uint32_t s=0;s<current.h->sequenceCount;++s)
+        existingSamples+=uint64_t{current.sequences[s].frameCount}*current.h->boneCount;
+    const uint64_t timingSampleLimit=std::max<uint64_t>(131072,std::min<uint64_t>(1048576,2*existingSamples));
+    std::vector<std::vector<uint32_t>> timedFrames;
+    if(timingNeeded) {
+        timedFrames.resize(sequenceIndices.size());uint64_t samples=0;
+        std::vector<uint8_t> authoredGrid(sequenceIndices.size());
+        for(size_t s=0;s<sequenceIndices.size();++s) {
+            const uint32_t duration=model.sequences[sequenceIndices[s]].duration;
+            if(!duration){timedFrames[s]={0,0};samples+=2u*current.h->boneCount;continue;}
+            const bool authored=chosen[s]>base[s];
+            authoredGrid[s]=authored;
+            const uint32_t intervals=authored?base[s]:chosen[s];
+            std::set<uint32_t> times={0,duration};
+            if(!authored)for(uint32_t f=1;f<intervals;++f)
+                    times.insert(static_cast<uint32_t>(std::llround(static_cast<double>(duration)*f/intervals)));
+            if(authored)
+                for(uint32_t b=0;b<current.h->boneCount;++b) {
+                    const auto& bone=model.bones[current.bones[b].m2Bone];
+                    for(const auto* track:{&bone.translation,&bone.rotation,&bone.scale}) {
+                        const auto seq=sequenceIndices[s];
+                        if(!skin_detail::trackVaries(*track,seq))continue;
+                        for(uint32_t t:track->sequences[seq].timestamps)if(t<=duration)times.insert(t);
+                    }
+                }
+            timedFrames[s].assign(times.begin(),times.end());samples+=uint64_t{times.size()}*current.h->boneCount;
+        }
+        std::vector<float> beforeErrors(sequenceIndices.size());
+        for(size_t s=0;s<sequenceIndices.size();++s)
+            beforeErrors[s]=measure(current,s,model,sequenceIndices[s],bind,info.emittedSource,true);
+        std::vector<uint8_t> bestTimed;SkinBakeInfo bestInfo;
+        std::vector<std::vector<uint32_t>> bestFrames;
+        std::set<std::pair<int,uint16_t>> bestFloatTracks;
+        float bestWorst=1e30f;bool bestCompact=false,bestSlerp=false,bestFloatRotation=false;
+        for(int refinement=0;refinement<5 && samples<=timingSampleLimit &&
+            std::all_of(timedFrames.begin(),timedFrames.end(),[](const auto& t){return t.size()<=65535;});++refinement) {
+            SkinBakeInfo timedInfo;
+            auto timed=bakeSkinnedRaw(model,bind,batches,sequenceIndices,standSeq,rate,timedInfo,false,keepBones,nullptr,true,needVirtual,floatPositions,&timedFrames);
+            fmt::SkinView view;if(!view.init(timed.data(),static_cast<uint32_t>(timed.size())))return {};
+            bool admissible=true,helps=timedInfo.animBytes<info.animBytes&&info.animBytes>384u*1024u,usesCompact=false;
+            std::vector<uint8_t> bad(sequenceIndices.size());float worst=0;
+            std::set<std::pair<int,uint16_t>> floatTracks;
+            for(size_t s=0;s<sequenceIndices.size();++s) {
+                const float before=beforeErrors[s];
+                const float after=measure(view,s,model,sequenceIndices[s],bind,timedInfo.emittedSource,true);
+                bad[s]=after>.02f;worst=std::max(worst,after);
+                if(before<=.02f&&after>.02f)admissible=false;
+                if(before>.02f&&(after<=.02f||after<before*.8f))helps=true;
+            }
+            if(timedInfo.animBytes>384u*1024u) {
+              for(int promotion=0;promotion<4;++promotion) {
+                SkinBakeInfo compactInfo;
+                auto compact=bakeSkinnedRaw(model,bind,batches,sequenceIndices,standSeq,rate,compactInfo,false,keepBones,
+                    nullptr,true,needVirtual,floatPositions,&timedFrames,true,&floatTracks);
+                fmt::SkinView compactView;if(!compactView.init(compact.data(),static_cast<uint32_t>(compact.size())))return {};
+                float compactWorst=0;
+                std::vector<std::set<uint16_t>> affected(sequenceIndices.size());
+                for(size_t s=0;s<sequenceIndices.size();++s)
+                    compactWorst=std::max(compactWorst,measure(compactView,s,model,sequenceIndices[s],bind,compactInfo.emittedSource,true,&affected[s]));
+                if(compactWorst<=.02f&&compactInfo.animBytes<timedInfo.animBytes) {
+                    timed=std::move(compact);timedInfo=std::move(compactInfo);worst=compactWorst;
+                    admissible=helps=usesCompact=true;std::fill(bad.begin(),bad.end(),0);
+                    break;
+                }
+                if(compactWorst<=.02f)break;
+                const auto previous=floatTracks.size();
+                for(size_t s=0;s<sequenceIndices.size();++s)
+                    for(uint16_t affectedBone:affected[s])
+                        for(int b=affectedBone;b>=0&&static_cast<size_t>(b)<model.bones.size();b=model.bones[b].parentBone)
+                            if(!floatTracks.emplace(sequenceIndices[s],static_cast<uint16_t>(b)).second)break;
+                if(floatTracks.size()==previous)break;
+              }
+            }
+            if(admissible&&helps&&worst<bestWorst) {
+                bestTimed=std::move(timed);bestInfo=std::move(timedInfo);bestFrames=timedFrames;bestWorst=worst;
+                bestCompact=usesCompact;
+                bestFloatTracks=floatTracks;
+            }
+            if(worst<=.02f)break;
+            samples=0;bool changed=false;
+            for(size_t s=0;s<timedFrames.size();++s) {
+                if(bad[s]) {
+                    std::set<uint32_t> times;
+                    if(authoredGrid[s])times.insert(timedFrames[s].begin(),timedFrames[s].end());
+                    else {times.insert(0);times.insert(model.sequences[sequenceIndices[s]].duration);}
+                    if(authoredGrid[s])for(size_t i=1;i<timedFrames[s].size();++i) {
+                        const uint32_t lo=timedFrames[s][i-1],hi=timedFrames[s][i];
+                        if(hi-lo>1)times.insert(lo+(hi-lo)/2);
+                    }
+                    for(uint32_t b=0;b<current.h->boneCount;++b) {
+                        const auto& bone=model.bones[current.bones[b].m2Bone];
+                        for(const auto* track:{&bone.translation,&bone.rotation,&bone.scale}) {
+                            const auto seq=sequenceIndices[s];
+                            if(!skin_detail::trackVaries(*track,seq))continue;
+                            for(uint32_t t:track->sequences[seq].timestamps)if(t<=model.sequences[seq].duration)times.insert(t);
+                        }
+                    }
+                    std::vector<uint32_t> next(times.begin(),times.end());
+                    if(next==timedFrames[s]) {
+                        for(size_t i=1;i<timedFrames[s].size();++i) {
+                            const uint32_t lo=timedFrames[s][i-1],hi=timedFrames[s][i];if(hi-lo>1)times.insert(lo+(hi-lo)/2);
+                        }
+                        next.assign(times.begin(),times.end());
+                    }
+                    authoredGrid[s]=1;changed|=next!=timedFrames[s];timedFrames[s]=std::move(next);
+                }
+                samples+=uint64_t{timedFrames[s].size()}*current.h->boneCount;
+            }
+            if(!changed)break;
+        }
+        auto coarsenBest=[&]() -> bool {
+            if(bestTimed.empty())return true;
+            // PSP: coarsen only an over-budget timed candidate, retaining the
+            // original strong oracle's anchors. Restore removed frames around
+            // failures; never buy memory by dropping sequences or tolerance.
+            std::vector<std::set<float>> pinnedTimes=bestInfo.verificationTimes;
+            if(animationBudget&&bestInfo.animBytes>animationBudget) {
+                fmt::SkinView original;
+                if(!original.init(bestTimed.data(),static_cast<uint32_t>(bestTimed.size())))return false;
+                pinnedTimes.resize(sequenceIndices.size());
+                for(size_t s=0;s<sequenceIndices.size();++s)
+                    pinnedTimes[s]=probeTimes(original,s,model,sequenceIndices[s],true,&pinnedTimes[s]);
+                const auto originalTimed=bestTimed;const auto originalInfo=bestInfo;
+                const auto originalFrames=bestFrames;
+                std::vector<size_t> order(sequenceIndices.size());std::iota(order.begin(),order.end(),0);
+                std::sort(order.begin(),order.end(),[&](size_t a,size_t b){return bestFrames[a].size()>bestFrames[b].size();});
+                for(unsigned phase=0;phase<6&&bestInfo.animBytes>animationBudget;++phase)for(size_t s:order) {
+                    if(bestInfo.animBytes<=animationBudget)break;
+                    const auto full=bestFrames[s];if(full.size()<4)continue;
+                    fmt::SkinView aliases;
+                    if(!aliases.init(bestTimed.data(),static_cast<uint32_t>(bestTimed.size())))return false;
+                    // Identical stored rows share key bytes. Coarsen their grids
+                    // together so an individually smaller track cannot break
+                    // deduplication and increase total allocation.
+                    std::vector<size_t> group;
+                    for(size_t other=0;other<sequenceIndices.size();++other)
+                        if(bestFrames[other]==full&&aliases.sequences[other].durationMs==aliases.sequences[s].durationMs&&
+                           !std::memcmp(aliases.tracks+other*aliases.h->boneCount,aliases.tracks+s*aliases.h->boneCount,
+                                        aliases.h->boneCount*sizeof(fmt::BoneTrack)))group.push_back(other);
+                    auto trialFrames=bestFrames;trialFrames[s].clear();trialFrames[s].push_back(full.front());
+                    for(size_t k=1;k+1<full.size();++k)
+                        if(phase%3==0?k%2==0:phase%3==1?k%2!=0:k%3!=1)trialFrames[s].push_back(full[k]);
+                    trialFrames[s].push_back(full.back());
+                    for(unsigned refinement=0;refinement<5;++refinement) {
+                        for(size_t alias:group)trialFrames[alias]=trialFrames[s];
+                        SkinBakeInfo trialInfo;
+                        auto trial=bakeSkinnedRaw(model,bind,batches,sequenceIndices,standSeq,rate,trialInfo,false,keepBones,
+                            nullptr,true,needVirtual,floatPositions,&trialFrames,bestCompact,&bestFloatTracks,bestSlerp,bestFloatRotation);
+                        fmt::SkinView test;if(!test.init(trial.data(),static_cast<uint32_t>(trial.size())))return false;
+                        std::set<float> bad;float error=0;
+                        for(size_t alias:group)
+                            error=std::max(error,measure(test,alias,model,sequenceIndices[alias],bind,
+                                trialInfo.emittedSource,true,nullptr,nullptr,nullptr,nullptr,nullptr,&pinnedTimes[alias],&bad));
+                        if(error<=.02f) {
+                            if(trialInfo.animBytes<bestInfo.animBytes) {
+                                bestTimed=std::move(trial);bestInfo=std::move(trialInfo);bestFrames=std::move(trialFrames);
+                            }
+                            break;
+                        }
+                        std::set<uint32_t> restored(trialFrames[s].begin(),trialFrames[s].end());
+                        for(float t:bad) {
+                            auto hi=std::upper_bound(trialFrames[s].begin(),trialFrames[s].end(),t);
+                            if(hi==trialFrames[s].end()||hi==trialFrames[s].begin())continue;
+                            const auto lo=hi-1;
+                            for(auto at=std::upper_bound(full.begin(),full.end(),*lo);at!=full.end()&&*at<*hi;++at)restored.insert(*at);
+                        }
+                        if(restored.size()==trialFrames[s].size()||restored.size()==full.size())break;
+                        trialFrames[s].assign(restored.begin(),restored.end());
+                    }
+                }
+                fmt::SkinView finalView;if(!finalView.init(bestTimed.data(),static_cast<uint32_t>(bestTimed.size())))return false;
+                float error=0;
+                for(size_t s=0;s<sequenceIndices.size();++s)
+                    error=std::max(error,measure(finalView,s,model,sequenceIndices[s],bind,
+                        bestInfo.emittedSource,true,nullptr,nullptr,nullptr,nullptr,nullptr,&pinnedTimes[s]));
+                if(error>.02f){bestTimed=originalTimed;bestInfo=originalInfo;bestFrames=originalFrames;}else bestWorst=error;
+                bestInfo.verificationTimes=pinnedTimes;
+            }
+            return true;
+        };
+        if(!coarsenBest())return {};
+        // PSP: rare fallback for a remaining precision floor or a timed model
+        // that cannot meet its byte budget with dense NLERP samples. Preserve
+        // source corners and use source-style SLERP rather than more samples.
+        if(bestTimed.empty()||bestWorst>.02f||(animationBudget&&bestInfo.animBytes>animationBudget)) {
+            fmt::SkinView previous;
+            const auto& previousBlob=bestTimed.empty()?candidate:bestTimed;
+            if(!previous.init(previousBlob.data(),static_cast<uint32_t>(previousBlob.size())))return {};
+            std::vector<std::set<float>> pins(sequenceIndices.size());
+            std::vector<std::vector<uint32_t>> authored(sequenceIndices.size());uint64_t authoredSamples=0;
+            for(size_t s=0;s<sequenceIndices.size();++s) {
+                pins[s]=probeTimes(previous,s,model,sequenceIndices[s],true,
+                    !bestTimed.empty()&&s<bestInfo.verificationTimes.size()?&bestInfo.verificationTimes[s]:nullptr);
+                const auto duration=model.sequences[sequenceIndices[s]].duration;
+                std::set<uint32_t> times{0,duration};
+                for(uint32_t b=0;b<current.h->boneCount;++b) {
+                    const auto& bone=model.bones[current.bones[b].m2Bone];
+                    for(const auto* track:{&bone.translation,&bone.rotation,&bone.scale})
+                        if(skin_detail::trackVaries(*track,sequenceIndices[s]))
+                            for(uint32_t t:track->sequences[sequenceIndices[s]].timestamps)if(t<=duration)times.insert(t);
+                }
+                authored[s].assign(times.begin(),times.end());if(!duration)authored[s]={0,0};
+                authoredSamples+=uint64_t{authored[s].size()}*current.h->boneCount;
+            }
+            if(authoredSamples<=timingSampleLimit&&std::all_of(authored.begin(),authored.end(),[](const auto& t){return t.size()<=65535;}))
+            for(unsigned rotationPrecision=0;rotationPrecision<2;++rotationPrecision) {
+                auto measureExact=[&](const std::vector<uint8_t>& bytes,const SkinBakeInfo& stats,std::vector<std::set<uint16_t>>* affected=nullptr) {
+                    fmt::SkinView view;if(!view.init(bytes.data(),static_cast<uint32_t>(bytes.size())))return 1e30f;
+                    float worst=0;
+                    for(size_t s=0;s<sequenceIndices.size();++s)
+                        worst=std::max(worst,measure(view,s,model,sequenceIndices[s],bind,stats.emittedSource,
+                            true,affected?&(*affected)[s]:nullptr,nullptr,nullptr,nullptr,nullptr,&pins[s]));
+                    return worst;
+                };
+                SkinBakeInfo exactInfo;
+                auto exact=bakeSkinnedRaw(model,bind,batches,sequenceIndices,standSeq,rate,exactInfo,false,keepBones,
+                    nullptr,true,needVirtual,floatPositions,&authored,false,nullptr,true,rotationPrecision!=0);
+                float worst=measureExact(exact,exactInfo);if(worst>.02f)continue;
+                bool compactSelected=false;std::set<std::pair<int,uint16_t>> floatTracks;
+                for(unsigned promotion=0;promotion<4;++promotion) {
+                    SkinBakeInfo compactInfo;
+                    auto compact=bakeSkinnedRaw(model,bind,batches,sequenceIndices,standSeq,rate,compactInfo,false,keepBones,
+                        nullptr,true,needVirtual,floatPositions,&authored,true,&floatTracks,true,rotationPrecision!=0);
+                    std::vector<std::set<uint16_t>> affected(sequenceIndices.size());
+                    const float error=measureExact(compact,compactInfo,&affected);
+                    if(error<=.02f) {
+                        if(compactInfo.animBytes<exactInfo.animBytes){exact=std::move(compact);exactInfo=std::move(compactInfo);worst=error;compactSelected=true;}
+                        break;
+                    }
+                    const auto previousCount=floatTracks.size();
+                    for(size_t s=0;s<sequenceIndices.size();++s)for(uint16_t affectedBone:affected[s])
+                        for(int b=affectedBone;b>=0&&static_cast<size_t>(b)<model.bones.size();b=model.bones[b].parentBone)
+                            if(!floatTracks.emplace(sequenceIndices[s],static_cast<uint16_t>(b)).second)break;
+                    if(floatTracks.size()==previousCount)break;
+                }
+                if(bestTimed.empty()||bestWorst>.02f||exactInfo.animBytes<bestInfo.animBytes) {
+                    exactInfo.verificationTimes=pins;bestTimed=std::move(exact);bestInfo=std::move(exactInfo);
+                    bestFrames=authored;bestWorst=worst;bestCompact=compactSelected;bestFloatTracks=std::move(floatTracks);
+                    bestSlerp=true;bestFloatRotation=rotationPrecision!=0;
+                }
+                break; // the smaller int16 mode wins whenever it already passes
+            }
+        }
+        if(!bestTimed.empty()) {
+            if(bestSlerp&&!coarsenBest())return {};
+            auto pinnedTimes=bestInfo.verificationTimes;
+            info=std::move(bestInfo);
+            if(animOnly) {
+                auto animation=bakeSkinnedRaw(model,bind,batches,sequenceIndices,standSeq,rate,info,true,keepBones,nullptr,true,needVirtual,floatPositions,&bestFrames,bestCompact,&bestFloatTracks,bestSlerp,bestFloatRotation);
+                info.verificationTimes=std::move(pinnedTimes);
+                return animation;
+            }
+            return bestTimed;
+        }
+    }
+    if(animOnly)return bakeSkinnedRaw(model,bind,batches,sequenceIndices,standSeq,rate,info,true,keepBones,&chosen,precise,virtuals,floatPositions);
+    return candidate;
 }
 
 inline SkinVerifyResult verifySkinned(const std::vector<uint8_t>& blob, const pipeline::M2Model& model,
                                       const std::vector<pipeline::M2Vertex>& bind,
                                       const std::vector<int>& sequenceIndices, const SkinBakeInfo& info,
                                       const std::vector<SkinBatchIn>& batches, std::vector<uint8_t>* dump,
-                                      const std::set<uint16_t>* dumpGeosets) {
+                                      const std::set<uint16_t>* dumpGeosets,
+                                      const SkinVisibilityPolicy* visibility=nullptr) {
     SkinVerifyResult r;
     fmt::SkinView view;
     if (!view.init(blob.data(), static_cast<uint32_t>(blob.size()))) {
@@ -605,25 +1495,38 @@ inline SkinVerifyResult verifySkinned(const std::vector<uint8_t>& blob, const pi
         r.worst = "blob rejected by SkinView::init";
         return r;
     }
+    if(visibility) {
+        if(sequenceIndices.size()!=view.h->sequenceCount){r.maxErr=1e30f;r.worst="sequence count mismatch";return r;}
+        for(uint32_t s=0;s<view.h->sequenceCount;++s) {
+            size_t samples=0,probes=0,clipped=0;double sum=0;float raw=0;std::string where;
+            const auto* pins=s<info.verificationTimes.size()?&info.verificationTimes[s]:nullptr;
+            const float error=skinSequenceError(view,s,model,sequenceIndices[s],bind,info.emittedSource,true,
+                nullptr,&samples,&probes,&sum,&where,pins,nullptr,visibility,&raw,&clipped);
+            r.samples+=samples;r.probeTimes+=probes;r.sumSq+=sum;r.clippedSamples+=clipped;
+            r.rawMaxErr=std::max(r.rawMaxErr,raw);
+            if(error>r.maxErr){r.maxErr=error;r.worst=where;}
+        }
+        return r;
+    }
     std::vector<fmt::BoneMatrix> pose(view.h->boneCount);
     std::vector<glm::mat4> ref;
-    const float fractions[] = {0.0f, 0.13f, 0.37f, 0.5f, 0.71f, 0.93f, 0.999f};
     for (int s = 0; s < view.h->sequenceCount; ++s) {
         const int si = sequenceIndices[s];
         const float dur = static_cast<float>(view.sequences[s].durationMs);
-        for (float fr : fractions) {
-            const float t = dur * fr;
+        const auto* pinned=static_cast<size_t>(s)<info.verificationTimes.size()?&info.verificationTimes[s]:nullptr;
+        for (float t : skinProbeTimes(view,static_cast<uint32_t>(s),model,si,true,pinned)) {
+            ++r.probeTimes;
             fmt::evaluatePose(view, s, t, pose.data());
             poseBones(model, si, t, ref);
             size_t e = 0;
             double seqMax = 0.0;
             for (int b = 0; b < view.h->batchCount; ++b) {
                 const fmt::ModelBatch& mb = view.batches[b];
-                const bool dumpIt = dump && fr == 0.37f && (!dumpGeosets || dumpGeosets->count(view.geosets[b]));
+                const bool dumpIt = dump && t == dur * 0.37f && (!dumpGeosets || dumpGeosets->count(view.geosets[b]));
                 for (uint32_t k = 0; k < mb.indexCount; ++k) {
                     const fmt::SkinSubBatch& sb = view.subBatches[mb.indexStart + k];
                     const uint8_t* verts = view.vertices(sb);
-                    const int stride = fmt::skinVertexStride(sb.weights);
+                    const int stride = fmt::skinVertexStride(sb.weights, (view.h->flags & fmt::kSkinFloatPosition) != 0,sb.reserved);
                     std::vector<glm::vec3> ours(sb.vertexCount);
                     for (uint32_t i = 0; i < sb.vertexCount; ++i, ++e) {
                         ours[i] = geSkin(view, pose, sb, verts + static_cast<size_t>(i) * stride);

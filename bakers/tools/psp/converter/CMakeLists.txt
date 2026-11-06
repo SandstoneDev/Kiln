@@ -104,6 +104,19 @@ if(TARGET glm::glm)
     target_link_libraries(psp_creature_conv PRIVATE glm::glm)
 endif()
 
+# PSP: selective local repair; textures, pack IDs and original files stay intact.
+add_executable(psp_animation_repair psp_animation_repair.cpp
+    ${WOWEE_ROOT}/src/pipeline/m2_loader.cpp ${WOWEE_ROOT}/src/core/logger.cpp)
+target_include_directories(psp_animation_repair PRIVATE ${WOWEE_ROOT}/include ${WOWEE_ROOT}/src)
+target_link_libraries(psp_animation_repair PRIVATE meshoptimizer::meshoptimizer)
+if(TARGET glm::glm)
+    target_link_libraries(psp_animation_repair PRIVATE glm::glm)
+endif()
+
+# PSP: exact single-model fallback, retaining existing texture/attachment IDs.
+add_executable(psp_import_skin psp_import_skin.cpp)
+target_include_directories(psp_import_skin PRIVATE ${WOWEE_ROOT}/include)
+
 # Read-only MPQ extraction of selected folders (M10c): works while the client
 # runs and holds the archives (upstream asset_extract opens them read/write).
 # Optional: only when StormLib is installed (MSYS2: mingw-w64-ucrt-x86_64-stormlib).

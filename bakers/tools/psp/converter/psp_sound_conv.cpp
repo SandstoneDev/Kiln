@@ -1,7 +1,7 @@
 // psp_sound_conv - sound effects for the PSP (docs/PSP_PORT_ARCHITECTURE.md).
 //
 //   psp_sound_conv --extracted <dir> --out <psp/bin/data/sounds.pak>
-//                  [--map <map>]... [--rate 22050] [--stereo] [--max-sec 12]
+//                  [--map <map>]... [--all-maps] [--rate 22050] [--stereo] [--max-sec 12] [--trim-long]
 //                  [--entry-prefix "Sound\Interface\"]... [--no-entries]
 //                  [--max-pak-mb 1024] [--verify] [--dump <dir>] [--list-missing]
 //   psp_sound_conv --verify-pak <sounds.pak>      (check a baked pak, and its parts)
@@ -62,6 +62,7 @@ std::string g_root;
 uint32_t g_rate = 22050;
 bool g_stereo = false;
 float g_maxSec = 12.0f;
+bool g_trimLong = false;
 
 struct Clip {
     std::string path;  // normalised (lower, '/')
@@ -80,8 +81,10 @@ bool decode(const std::string& path, Clip& c, std::string& why) {
         why = "unreadable";
         return false;
     }
-    const ma_uint32 ch = g_stereo ? 2 : 1;
-    ma_decoder_config cfg = ma_decoder_config_init(ma_format_s16, ch, g_rate);
+    const bool ambience=startsWith(path,"sound/ambience/");
+    const bool horseman=startsWith(path,"sound/creature/headlesshorseman/");
+    const ma_uint32 ch = ambience || horseman ? 1 : g_stereo ? 2 : 1;
+    ma_decoder_config cfg = ma_decoder_config_init(ma_format_s16, ch, ambience || horseman ? 11025 : g_rate);
     cfg.resampling.linear.lpfOrder = 8;  // anti-aliasing when going down to 22.05 kHz
     ma_decoder dec;
     if (ma_decoder_init_memory(bytes.data(), bytes.size(), &cfg, &dec) != MA_SUCCESS) {
@@ -100,14 +103,27 @@ bool decode(const std::string& path, Clip& c, std::string& why) {
         if (r != MA_SUCCESS || got < 4096) break;
     }
     ma_decoder_uninit(&dec);
-    const uint32_t frames = static_cast<uint32_t>(pcm.size() / outCh);
+    uint32_t frames = static_cast<uint32_t>(pcm.size() / outCh);
     if (frames == 0 || outRate == 0) {
         why = "empty";
         return false;
     }
-    if (static_cast<float>(frames) / static_cast<float>(outRate) > g_maxSec) {
-        why = "longer than --max-sec";
-        return false;
+    const float clipLimit=ambience ? std::min(g_maxSec,6.0f) : horseman ? std::max(g_maxSec,30.f) : g_maxSec;
+    if (static_cast<float>(frames) / static_cast<float>(outRate) > clipLimit) {
+        if (!g_trimLong && !ambience) {
+            why = "longer than --max-sec";
+            return false;
+        }
+        frames = std::max(1u,static_cast<uint32_t>(clipLimit * outRate));
+        pcm.resize(static_cast<size_t>(frames) * outCh);
+        // Fade the cut rather than ending the waveform abruptly.
+        const uint32_t fade = std::min(frames,std::max(1u,outRate / 20u));
+        for (uint32_t i=0;!ambience && i<fade;++i)
+            for (uint32_t channel=0;channel<outCh;++channel) {
+                auto& sample=pcm[(static_cast<size_t>(frames-fade+i) * outCh)+channel];
+                sample=static_cast<int16_t>(static_cast<int32_t>(sample) * (fade-1-i) / fade);
+            }
+        std::printf("  trimmed %s to %.1f sec (PSP clip limit)\n",path.c_str(),g_maxSec);
     }
     c.rate = outRate;
     c.frames = frames;
@@ -229,7 +245,7 @@ int verifyPaks(const std::string& out, const std::string& dumpDir) {
                 if (k != 0) ++errors;
                 entries.assign(b, b + e.size);
             } else if (startsWith(e.name, "g_")) {
-                if (k != 0 || e.size != fmt::kSurfaceGridBytes || std::memcmp(b, "WSRF", 4) != 0) {
+                if (k != 0 || !fmt::surfaceGridValid(b, e.size)) {
                     std::fprintf(stderr, "verify: %s bad grid\n", e.name.c_str());
                     ++errors;
                 }
@@ -290,15 +306,17 @@ int verifyPaks(const std::string& out, const std::string& dumpDir) {
 int main(int argc, char** argv) {
     std::string out, dumpDir, verifyPak;
     std::vector<std::string> maps, prefixes;
-    bool entriesOn = true, verify = false, listMissing = false;
+    bool entriesOn = true, verify = false, listMissing = false, allMaps = false;
     uint64_t maxPakMb = 1024;
     for (int i = 1; i < argc; ++i) {
         const std::string a = argv[i];
         if (a == "--extracted" && i + 1 < argc) g_root = argv[++i];
         else if (a == "--out" && i + 1 < argc) out = argv[++i];
         else if (a == "--map" && i + 1 < argc) maps.push_back(argv[++i]);
+        else if (a == "--all-maps") allMaps = true;
         else if (a == "--rate" && i + 1 < argc) g_rate = static_cast<uint32_t>(std::stoul(argv[++i]));
         else if (a == "--stereo") g_stereo = true;
+        else if (a == "--trim-long") g_trimLong = true;
         else if (a == "--max-sec" && i + 1 < argc) g_maxSec = std::stof(argv[++i]);
         else if (a == "--entry-prefix" && i + 1 < argc) prefixes.push_back(lower(argv[++i]));
         else if (a == "--no-entries") entriesOn = false;
@@ -315,13 +333,17 @@ int main(int argc, char** argv) {
     if (!dumpDir.empty()) fs::create_directories(dumpDir);
     if (!verifyPak.empty()) return verifyPaks(verifyPak, dumpDir);
     if (g_root.empty() || out.empty()) {
-        std::fprintf(stderr, "usage: psp_sound_conv --extracted <dir> --out <sounds.pak> [--map Azeroth]... "
-                             "[--rate 22050] [--stereo] [--max-sec 12] [--entry-prefix \"Sound\\Interface\\\"]... "
+        std::fprintf(stderr, "usage: psp_sound_conv --extracted <dir> --out <sounds.pak> [--map Azeroth]... [--all-maps] "
+                             "[--rate 22050] [--stereo] [--max-sec 12] [--trim-long] [--entry-prefix \"Sound\\Interface\\\"]... "
                              "[--no-entries] [--max-pak-mb 1024] [--verify] [--dump <dir>] [--list-missing]\n"
                              "       psp_sound_conv --verify-pak <sounds.pak> [--dump <dir>]\n");
         return 2;
     }
-    if (prefixes.empty()) prefixes.push_back(lower("Sound\\Interface\\"));
+    if (prefixes.empty()) {
+        prefixes.push_back(lower("Sound\\Interface\\"));
+        prefixes.push_back(lower("Sound\\Spells\\"));
+        prefixes.push_back(lower("Sound\\Creature\\HeadlessHorseman\\"));
+    }
     maxPakMb = std::clamp<uint64_t>(maxPakMb, 16, 1900);
 
     // 1. The managers' files (upstream lists), in their order, once each.
@@ -350,6 +372,68 @@ int main(int argc, char** argv) {
         std::vector<std::string> files;
     };
     std::vector<RowIn> rowsIn;
+    // Some spell kits reference creature or item directories rather than Sound/Spells.
+    // Select those authored entries too, without baking every SoundEntries row.
+    std::set<uint32_t> spellSounds;
+    pipeline::DBCFile spellKits;
+    std::vector<uint8_t> kitBytes;
+    if (readFile(g_root + "/dbfilesclient/spellvisualkit.dbc",kitBytes) && spellKits.load(kitBytes) && spellKits.getFieldCount()>15)
+        for (uint32_t i=0;i<spellKits.getRecordCount();++i)
+            if (const uint32_t id=spellKits.getUInt32(i,15)) spellSounds.insert(id);
+    std::vector<fmt::CharacterVoice> voiceRows;
+    pipeline::DBCFile races, displays, models, creatureSounds;
+    auto loadVoiceDbc=[&](const char* name,pipeline::DBCFile& dbc) {
+        std::vector<uint8_t> data;
+        return readFile(g_root+"/dbfilesclient/"+name,data) && dbc.load(data);
+    };
+    if (loadVoiceDbc("chrraces.dbc",races) && loadVoiceDbc("creaturedisplayinfo.dbc",displays) &&
+        loadVoiceDbc("creaturemodeldata.dbc",models) && loadVoiceDbc("creaturesounddata.dbc",creatureSounds) &&
+        races.getFieldCount()>5 && displays.getFieldCount()>2 && models.getFieldCount()>13 && creatureSounds.getFieldCount()>27) {
+        for (uint32_t i=0;i<races.getRecordCount();++i) for (uint32_t sex=0;sex<2;++sex) {
+            const int32_t di=displays.findRecordById(races.getUInt32(i,4+sex));
+            if (di<0) continue;
+            uint32_t soundSet=displays.getUInt32(di,2);
+            if (!soundSet) {
+                const int32_t mi=models.findRecordById(displays.getUInt32(di,1));
+                if (mi>=0) soundSet=models.getUInt32(mi,13);
+            }
+            const int32_t si=creatureSounds.findRecordById(soundSet);
+            if (si<0) continue;
+            fmt::CharacterVoice row{races.getUInt32(i,0),sex,
+                creatureSounds.getUInt32(si,1),creatureSounds.getUInt32(si,3),creatureSounds.getUInt32(si,4),
+                creatureSounds.getUInt32(si,26),creatureSounds.getUInt32(si,27),creatureSounds.getUInt32(si,6)};
+            voiceRows.push_back(row);
+            for (uint32_t id : {row.attack,row.wound,row.critical,row.jump,row.land,row.death})
+                if (id) spellSounds.insert(id);
+        }
+    }
+    std::vector<fmt::AreaAmbience> areaAmbience;
+    pipeline::DBCFile areaDb, ambienceDb;
+    if (loadVoiceDbc("areatable.dbc",areaDb) && loadVoiceDbc("soundambience.dbc",ambienceDb) &&
+        areaDb.getFieldCount()>7 && ambienceDb.getFieldCount()>=3) {
+        for (uint32_t i=0;i<areaDb.getRecordCount();++i) {
+            fmt::AreaAmbience row{areaDb.getUInt32(i,0),areaDb.getUInt32(i,2),0,0};
+            const int32_t a=ambienceDb.findRecordById(areaDb.getUInt32(i,7));
+            if (a>=0) { row.day=ambienceDb.getUInt32(a,1); row.night=ambienceDb.getUInt32(a,2); }
+            areaAmbience.push_back(row);
+            if (row.day) spellSounds.insert(row.day);
+            if (row.night) spellSounds.insert(row.night);
+        }
+    }
+    // NPC voices follow the actual display's NPCSounds set, including the
+    // authored voice personality, instead of guessing a race from its name.
+    std::vector<fmt::NpcVoiceRecord> npcVoices;
+    pipeline::DBCFile npcDisplayDb,npcSoundDb;
+    if(loadVoiceDbc("creaturedisplayinfo.dbc",npcDisplayDb) && loadVoiceDbc("npcsounds.dbc",npcSoundDb) &&
+       npcDisplayDb.getFieldCount()>12 && npcSoundDb.getFieldCount()>=5) {
+        for(uint32_t i=0;i<npcDisplayDb.getRecordCount();++i) {
+            const int32_t sound=npcSoundDb.findRecordById(npcDisplayDb.getUInt32(i,12));
+            if(sound<0)continue;
+            fmt::NpcVoiceRecord row{};row.display=npcDisplayDb.getUInt32(i,0);
+            for(int k=0;k<4;++k){row.sound[k]=npcSoundDb.getUInt32(sound,k+1);if(row.sound[k])spellSounds.insert(row.sound[k]);}
+            npcVoices.push_back(row);
+        }
+    }
     size_t mp3Skipped = 0;
     if (entriesOn) {
         pipeline::DBCFile se;
@@ -361,7 +445,7 @@ int main(int argc, char** argv) {
                 const std::string name = se.getString(r, 2);
                 const std::string dir = se.getString(r, 23);
                 RowIn in{};
-                bool match = false;
+                bool match = spellSounds.count(se.getUInt32(r,0)) != 0 || startsWith(lower(dir),"sound/ambience/weather") || startsWith(lower(dir),"sound\\ambience\\weather");
                 for (uint32_t f = 3; f <= 12; ++f) {
                     const std::string file = se.getString(r, f);
                     if (file.empty()) continue;
@@ -400,6 +484,7 @@ int main(int argc, char** argv) {
         std::error_code ec;
         if (!fs::exists(g_root + "/" + n, ec)) {
             ++absent;
+            if(listMissing)std::printf("missing %s\n",n.c_str()); // include DBC-selected NPC/spell clips in Kiln's extraction probe
             continue;
         }
         Clip c;
@@ -464,14 +549,40 @@ int main(int argc, char** argv) {
 
     // 5. Surface grids.
     std::vector<PakItem> first;
+    if (!voiceRows.empty()) {
+        const auto* bytes=reinterpret_cast<const uint8_t*>(voiceRows.data());
+        first.push_back({"voices",3,std::vector<uint8_t>(bytes,bytes+voiceRows.size()*sizeof(fmt::CharacterVoice))});
+        std::printf("character voices: %zu race/sex profiles\n",voiceRows.size());
+    }
+    if (!areaAmbience.empty()) {
+        const auto* p=reinterpret_cast<const uint8_t*>(areaAmbience.data());
+        first.push_back({"ambience",3,std::vector<uint8_t>(p,p+areaAmbience.size()*sizeof(fmt::AreaAmbience))});
+    }
+    if(!npcVoices.empty()) {
+        const auto* p=reinterpret_cast<const uint8_t*>(npcVoices.data());
+        first.push_back({"npcvoices",3,std::vector<uint8_t>(p,p+npcVoices.size()*sizeof(fmt::NpcVoiceRecord))});
+    }
     if (!entries.empty()) first.push_back({"entries", 3, std::move(entries)});
     uint32_t hist[8] = {};
     uint32_t waterCells = 0;
     size_t gridCount = 0;
-    if (!maps.empty()) {
+    if (allMaps || !maps.empty()) {
         pipeline::DBCFile mapDbc;
         std::vector<uint8_t> bytes;
         const bool mapOk = readFile(g_root + "/dbfilesclient/map.dbc", bytes) && mapDbc.load(bytes);
+        if (allMaps && mapOk) {
+            maps.clear();
+            for (uint32_t row = 0; row < mapDbc.getRecordCount(); ++row) {
+                const std::string dir = mapDbc.getString(row, 1);
+                if (!dir.empty()) maps.push_back(dir);
+            }
+            std::sort(maps.begin(), maps.end());
+            maps.erase(std::unique(maps.begin(), maps.end()), maps.end());
+        }
+        if (allMaps && !mapOk) {
+            std::fprintf(stderr, "--all-maps requires a valid map.dbc\n");
+            return 3;
+        }
         for (const std::string& m : maps) {
             uint32_t mapId = 0xFFFFFFFFu;
             if (mapOk)
@@ -482,17 +593,29 @@ int main(int argc, char** argv) {
                 continue;
             }
             const std::string dir = g_root + "/world/maps/" + lower(m) + "/";
-            for (int x = 0; x < 64; ++x)
-                for (int y = 0; y < 64; ++y) {
-                    std::vector<uint8_t> adt;
-                    if (!readFile(dir + lower(m) + "_" + std::to_string(x) + "_" + std::to_string(y) + ".adt", adt))
-                        continue;
-                    const pipeline::ADTTerrain t = pipeline::ADTLoader::load(adt);
-                    char name[48];
-                    std::snprintf(name, sizeof(name), "g_%u_%d_%d", mapId, x, y);
-                    first.push_back({name, 3, surfaceGrid(t, hist, waterCells)});
-                    ++gridCount;
-                }
+            // Enumerate existing ADTs instead of probing 4096 filenames for
+            // each of hundreds of map records (most have few or no tiles).
+            std::error_code ec;
+            std::vector<fs::path> tiles;
+            for (fs::directory_iterator it(dir, ec), end; !ec && it != end; it.increment(ec))
+                if (lower(it->path().extension().string()) == ".adt") tiles.push_back(it->path());
+            std::sort(tiles.begin(), tiles.end());
+            const std::string prefix = lower(m) + "_";
+            for (const auto& tile : tiles) {
+                const std::string filename = lower(tile.filename().string());
+                if (!startsWith(filename, prefix)) continue;
+                int x = -1, y = -1;
+                if (std::sscanf(filename.c_str() + prefix.size(), "%d_%d.adt", &x, &y) != 2 ||
+                    x < 0 || x >= 64 || y < 0 || y >= 64) continue;
+                if (filename != prefix + std::to_string(x) + "_" + std::to_string(y) + ".adt") continue;
+                std::vector<uint8_t> adt;
+                if (!readFile(tile.string(), adt)) continue;
+                const pipeline::ADTTerrain t = pipeline::ADTLoader::load(adt);
+                char name[48];
+                std::snprintf(name, sizeof(name), "g_%u_%d_%d", mapId, x, y);
+                first.push_back({name, 3, surfaceGrid(t, hist, waterCells)});
+                ++gridCount;
+            }
         }
     }
 

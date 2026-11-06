@@ -162,13 +162,41 @@ def walk(root, tops):
 
 
 # -- the copy (memory stick) ---------------------------------------------------------------------------------------
-def target_files(ctx, man):
+def target_files(ctx, man, target=None):
     """What belongs on the target: every recorded output under data/ + data/locales.txt. -> {key: (rel, size, sha)}"""
     out = {k: v[:3] for k, v in recorded_files(man).items() if v[0].startswith("data/")}
+    from .updates import _runtime_name, engine_version, should_replace_engine
+    source = engine_source(ctx, man)
+    if source:
+        installed = os.path.join(target_root(target), "EBOOT.PBP") if target else None
+        allowed = not installed or should_replace_engine(source, installed)
+        # Profiles belonging to a newer/different engine travel with that engine.
+        if not allowed:
+            out = {k: row for k, row in out.items() if not _runtime_name(row[0])}
+        else:
+            out[key("EBOOT.PBP")] = ("EBOOT.PBP", os.path.getsize(source), sha256_file(source))
+            support = ["sdbg.prx", *walk(ctx.out, ("data", "Data"))]
+            for rel in support:
+                if rel != "sdbg.prx" and not rel.lower().endswith(".json"):
+                    continue
+                if _runtime_name(rel) and os.path.isfile(os.path.join(ctx.out, rel)):
+                    out[key(rel)] = (rel, os.path.getsize(os.path.join(ctx.out, rel)),
+                                     sha256_file(os.path.join(ctx.out, rel)))
     lt = os.path.join(ctx.data, L.FILE_NAME)
     if os.path.exists(lt):
         out[key("data/" + L.FILE_NAME)] = ("data/" + L.FILE_NAME, os.path.getsize(lt), sha256_file(lt))
     return out
+
+
+def engine_source(ctx, man):
+    """A prepared installation owns the engine; legacy conversions keep it in xmb/."""
+    from .updates import engine_version
+    root = os.path.join(ctx.out, "EBOOT.PBP")
+    if engine_version(root):
+        return root
+    if any(row[0].lower() == "xmb/eboot.pbp" for row in recorded_files(man).values()):
+        return os.path.join(ctx.out, "xmb", "EBOOT.PBP")
+    return None
 
 
 def target_root(target):
@@ -212,13 +240,13 @@ def same_on_target(root, rel, size, sha, record, full):
 
 def check_target(ctx, man, target, rep, full=True):
     root = target_root(target)
-    want = target_files(ctx, man)
+    want = target_files(ctx, man, root)
     record = load_copy_record(root)
-    for k, (rel, size, sha) in sorted(want.items()):
+    for k, (rel, size, sha) in sorted(want.items(), key=lambda item: (item[1][0] == "EBOOT.PBP", item[0])):
         same, kind = same_on_target(root, rel, size, sha, record, full)
         if not same:
             rep.add("target", kind, rel, detail=os.path.join(root, rel))
-    known = set(want) | {key(COPY_RECORD)}
+    known = set(want) | {key(COPY_RECORD)} | {key(rel) for rel in KILN_FILES}
     for rel in walk(root, ("data",)):
         if key(rel) not in known and not rel.startswith(NOT_PROVIDED):
             rep.add("target", "extra", rel, detail="not in the manifest (kept)")
@@ -229,10 +257,10 @@ def sync_target(ctx, man, target, rep, full=False, only=None):
     """Copy what is missing or different on the target (never deletes). only: keys to look at (None = all).
     -> (copied, kept, failed, bytes copied)"""
     root = target_root(target)
-    want = target_files(ctx, man)
+    want = target_files(ctx, man, root)
     record = load_copy_record(root)
     copied = kept = failed = nbytes = 0
-    for k, (rel, size, sha) in sorted(want.items()):
+    for k, (rel, size, sha) in sorted(want.items(), key=lambda item: (item[1][0] == "EBOOT.PBP", item[0])):
         if only is not None and k not in only:
             continue
         if size >= FAT32_LIMIT:
@@ -246,7 +274,7 @@ def sync_target(ctx, man, target, rep, full=False, only=None):
             st = os.stat(dst)
             record[rel] = {"size": size, "sha256": sha, "mtime_ns": st.st_mtime_ns}
             continue
-        src = os.path.join(ctx.out, rel)
+        src = engine_source(ctx, man) if rel == "EBOOT.PBP" else os.path.join(ctx.out, rel)
         tmp = dst + ".kiln.tmp"
         try:
             os.makedirs(os.path.dirname(dst), exist_ok=True)
@@ -271,4 +299,17 @@ def sync_target(ctx, man, target, rep, full=False, only=None):
         if copied and copied % 25 == 0:
             save_copy_record(root, record)       # a long copy that is cut off keeps what it did
     save_copy_record(root, record)
+    if failed == 0:
+        # Recipe history travels with a successful copy, so another PC can update it.
+        rel = "data/kiln.manifest.json"
+        path = os.path.join(root, rel)
+        try:
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            tmp = path + ".tmp"
+            with open(tmp, "w", encoding="utf-8", newline="\n") as f:
+                json.dump(man.doc, f, indent=1, sort_keys=True)
+            os.replace(tmp, path)
+        except OSError as e:
+            failed += 1
+            rep.add("target", "copy-failed", rel, detail=str(e))
     return copied, kept, failed, nbytes

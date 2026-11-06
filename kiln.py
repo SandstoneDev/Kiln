@@ -26,8 +26,8 @@ Options:
   --check          integrity check of an earlier run: every output file against the manifest (size,
                    SHA-256), the steps' converter and input identity, data/locales.txt, files nobody
                    made; with --target also the copy there; --deep adds the converters' verify passes
-  --update         re-make only the recorded steps whose converters/bakers or input changed, that are
-                   unknown (older manifest) or failed, or whose files are damaged; then --target
+  --update         re-make changed selected steps; without --steps, use the installed groups and maps
+  --plan-update    read-only update candidates and reasons; --json emits a plan event for a GUI
   --repair         --check, then re-make the steps with damaged or missing files and re-copy the
                    damaged or missing files of --target
   --target DIR     a copy of the game folder (ms0:/PSP/GAME/<APP>/ on the memory stick): data/ goes
@@ -71,9 +71,9 @@ KILN_ROOT = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, KILN_ROOT)
 
 from kilnlib import KILN_VERSION, blp, check as CK, client as clientmod, gamecfg, locales as L, steps as S, winrt  # noqa: E402
-from kilnlib.manifest import Manifest  # noqa: E402
+from kilnlib.manifest import Manifest, ManifestError  # noqa: E402
 from kilnlib.pipeline import (Ctx, Heartbeat, build_steps, extract, extract_map_wdts, map_groups_wanted,  # noqa: E402
-                              ExtractRecord, FailGate, resolve_map0, run_cmd, run_gated, run_probe, select,
+                              ExtractRecord, FailGate, resolve_map0, run_cmd, run_gated, run_probe, run_step, select,
                               verify_existing)
 
 PERSONAL_USE = """PERSONAL USE ONLY
@@ -102,8 +102,9 @@ def parse(argv):
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--game", help="the client folder (holds the executable and Data/)")
     ap.add_argument("--out", help="output folder (gets data/, xmb/, logs/, work/ and the personal-use note)")
-    ap.add_argument("--steps", default="default")
+    ap.add_argument("--steps", default=None)
     ap.add_argument("--skip", default="")
+    ap.add_argument("--compact", action="store_true", help="smaller model textures and animation data; preserves selected maps")
     ap.add_argument("--jobs", type=int, default=1)
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--verify", action="store_true")
@@ -125,27 +126,30 @@ def parse(argv):
     ap.add_argument("--list-steps", action="store_true")
     ap.add_argument("--check", action="store_true")
     ap.add_argument("--update", action="store_true")
+    ap.add_argument("--plan-update", action="store_true", help="read-only update plan, including reasons (--json for a GUI)")
     ap.add_argument("--repair", action="store_true")
     ap.add_argument("--target", metavar="DIR")
     ap.add_argument("--server", metavar="HOST[:PORT]",
                     help="write the realm list server into wowee.cfg of the game folder (--target, else --out)")
     ap.add_argument("--deep", action="store_true")
     a = ap.parse_args(argv)
+    a.steps_explicit = a.steps is not None
+    a.steps = a.steps if a.steps is not None else "default"
     if not a.list_steps and not a.out:
         ap.error("--out is required")
     if not a.list_steps and not a.game and not (a.add_locale or a.remove_locale):
         ap.error("--game is required (without it only --add-locale or --remove-locale on an earlier output)")
-    if a.remove_locale and (a.add_locale or a.dry_run or a.verify or a.check or a.update or a.repair):
+    if a.remove_locale and (a.add_locale or a.dry_run or a.verify or a.check or a.update or a.plan_update or a.repair):
         ap.error("--remove-locale goes alone (with --out, optionally --target and --json)")
-    if not a.game and (a.verify or a.check or a.update or a.repair):
-        ap.error("--verify, --check, --update and --repair need --game")
-    modes = [m for m in ("dry_run", "verify", "check", "update", "repair") if getattr(a, m)]
+    if not a.game and (a.verify or a.check or a.update or a.plan_update or a.repair):
+        ap.error("--verify, --check, --update, --plan-update and --repair need --game")
+    modes = [m for m in ("dry_run", "verify", "check", "update", "plan_update", "repair") if getattr(a, m)]
     if len(modes) > 1:
-        ap.error("choose one of --dry-run, --verify, --check, --update, --repair (got %s)"
+        ap.error("choose one of --dry-run, --verify, --check, --update, --plan-update, --repair (got %s)"
                  % ", ".join("--" + m.replace("_", "-") for m in modes))
     if a.deep and not (a.check or a.repair):
         ap.error("--deep goes with --check or --repair (--verify always runs the verify passes)")
-    a.mode = "update" if a.update else "repair" if a.repair else "check" if a.check else ""
+    a.mode = "update" if a.update or a.plan_update else "repair" if a.repair else "check" if a.check else ""
     return a
 
 
@@ -222,7 +226,7 @@ def plan_doc(ctx, chosen, man):
     rows = []
     for s in chosen:
         state = "run"
-        if man and man.up_to_date(s.name, ctx.step_key(s), ctx.step_identity(s)):
+        if man and man.up_to_date(s.name, ctx.resume_key(s, man.step(s.name)), ctx.step_identity(s)):
             state = "up-to-date"
         if any(not os.path.exists(ctx.program_path(t)) for t in s.programs()):
             state = "program-missing"
@@ -355,6 +359,10 @@ def main(argv):
     a = parse(argv)
     if a.list_steps:
         return list_steps(a)
+    try:
+        Manifest(os.path.abspath(a.out), os.path.join(os.path.abspath(a.out), "data"))
+    except ManifestError as e:
+        return fail(a, str(e))
     rec_locales, rec_notes = recorded_locales(a) if a.mode else ({}, [])
     for p, what in ((a.out, "--out"), (a.work, "--work"), (a.mirror, "--mirror"), (a.target, "--target")):
         if p and inside(p, KILN_ROOT):
@@ -365,7 +373,7 @@ def main(argv):
                 return fail(a, "%s must be outside the client folder %s: Kiln never writes into your client."
                             % (what, g))
 
-    if a.server:
+    if a.server and not a.plan_update:
         rc = write_server(a)
         if rc:
             return rc
@@ -404,6 +412,8 @@ def main(argv):
         return do_check(ctx)
     if a.remove_locale:
         return remove_locales(ctx, later)
+    if a.plan_update:
+        return plan_update(ctx)
     narrow, repair_paths = prepare_mode(ctx, later)
 
     skip = {s.strip() for s in a.skip.split(",") if s.strip()}
@@ -414,6 +424,27 @@ def main(argv):
         ctx.say("error: --steps %r selects nothing (see --list-steps)" % a.steps)
         ctx.event("error", message="nothing selected")
         return 2
+    if not a.dry_run and not a.verify and any(st.base_name in ("characters", "creatures") for st in chosen):
+        from kilnlib.updates import UpdateError, require_model_engine
+        try:
+            # An explicit XMB source must not mask an incompatible installed
+            # engine in either runtime destination. A card target must already
+            # be prepared, even when the PC output is deliberately data-only.
+            engines = []
+            if a.eboot:
+                engines.append(a.eboot)
+            installed = os.path.join(ctx.out, "EBOOT.PBP")
+            if os.path.lexists(installed):
+                engines.append(installed)
+            if a.target:
+                engines.append(os.path.join(CK.target_root(a.target), "EBOOT.PBP"))
+            for engine in engines:
+                try:
+                    require_model_engine(engine)
+                except UpdateError as exc:
+                    raise UpdateError(exc.code, "%s: %s" % (engine, exc)) from None
+        except (UpdateError, ValueError, OSError) as exc:
+            return fail(a, str(exc))
     exes = converter_exes(ctx, chosen, groups)
     use_dlls(ctx, exes)
 
@@ -455,7 +486,7 @@ def main(argv):
     # 1. extraction (read-only on the archives) of what the pending steps need, per locale
     def pending_of(steps):
         return [s for s in steps if a.mode or a.force or
-                not man.up_to_date(s.name, ctx.step_key(s), ctx.step_identity(s))]
+                not man.up_to_date(s.name, ctx.resume_key(s, man.step(s.name)), ctx.step_identity(s))]
 
     pending = pending_of(chosen)
     done_prefixes = {}
@@ -561,17 +592,28 @@ def main(argv):
         else:
             for i, s in enumerate(chosen):
                 results[s.name] = run_gated(ctx, man, gate, s, i + 1, total, bool(a.mode))
+        retry_memory_failures(ctx, man, chosen, results)
     finally:
         hb.stop.set()
     spent["steps"] = time.time() - ts
-    if cl.present and all(r in ("ok", "skipped") for r in results.values()):
+    # A selective retry can succeed while other recorded steps are still failed.
+    # client_exe is finalized here, so an earlier failure of that copy is retryable.
+    outstanding = {n for n, st in man.doc["steps"].items()
+                   if n != "client_exe" and st.get("status") != "ok"}
+    if cl.present and not outstanding and all(r in ("ok", "skipped") for r in results.values()):
         copy_client_exe(ctx, cl, man)
     man.save()
 
     ok = sum(1 for r in results.values() if r == "ok")
     sk = sum(1 for r in results.values() if r == "skipped")
-    bad = [n for n, r in results.items() if r not in ("ok", "skipped")]
-    blocked = [n for n, r in results.items() if r == "blocked"]
+    bad = sorted({n for n, r in results.items() if r not in ("ok", "skipped")} |
+                 {n for n, st in man.doc["steps"].items() if st.get("status") != "ok"})
+    blocked = sorted(n for n in bad if results.get(n) == "blocked" or
+                     (man.step(n) or {}).get("status") == "blocked")
+    if not bad and os.path.isfile(os.path.join(ctx.out, "EBOOT.PBP")):
+        from kilnlib.updates import finish_engine_art
+        if finish_engine_art(ctx.out):
+            ctx.say("Installed EBOOT.PBP now includes the menu art made from your client.")
     copy = None
     if a.target:
         only = None
@@ -592,10 +634,14 @@ def main(argv):
     if big:
         ctx.say("warning: files of 4 GB or more do not fit a FAT32 memory stick: %s" % ", ".join(big))
     ctx.say("manifest: %s" % man.path)
-    ctx.say("\nNext: copy the folder\n    %s\nto the memory stick as\n    ms0:/PSP/GAME/%s/data\n"
-            "next to the port's EBOOT.PBP (distributed separately)." % (ctx.data, a.app))
+    if bad:
+        ctx.say("\nInstallation incomplete: finish the failed steps before copying to the memory stick: %s"
+                % ", ".join(bad))
+    else:
+        ctx.say("\nNext: copy the folder\n    %s\nto the memory stick as\n    ms0:/PSP/GAME/%s/data\n"
+                "next to the port's EBOOT.PBP." % (ctx.data, a.app))
     xmb_eboot = os.path.join(ctx.out, "xmb", "EBOOT.PBP")
-    if os.path.isfile(xmb_eboot):
+    if not bad and os.path.isfile(xmb_eboot):
         ctx.say("Your EBOOT with menu art from your client: %s - copy it as ms0:/PSP/GAME/%s/EBOOT.PBP."
                 % (xmb_eboot, a.app))
     ctx.say("The work folder %s holds files extracted from your client; delete it when you no longer\n"
@@ -607,6 +653,34 @@ def main(argv):
               target="ms0:/PSP/GAME/%s/data" % a.app, manifest=man.path, too_big_for_fat32=big, mode=a.mode,
               copy=copy, blocked=blocked)
     return 1 if bad or (copy and copy["failed"]) else 0
+
+
+def retry_memory_failures(ctx, man, chosen, results):
+    """Retry an explicit allocation failure once, alone, after the initial queue drains."""
+    jobs = ctx.jobs
+    try:
+        ctx.jobs = 1
+        for i, step in enumerate(chosen, 1):
+            if results.get(step.name) != "failed":
+                continue
+            log = os.path.join(ctx.logs, step.name + ".log")
+            first = os.path.join(ctx.logs, step.name + ".oom-first.log")
+            try:
+                with open(log, encoding="utf-8", errors="replace") as f:
+                    allocation_failure = any("std::bad_alloc" in line for line in f)
+                if not allocation_failure:
+                    continue
+                shutil.copyfile(log, first)
+            except OSError as e:
+                ctx.say("Cannot preserve the failed log for %s; not retrying: %s" % (step.name, e))
+                continue
+            ctx.say("retry: %s reported std::bad_alloc; retrying once with one worker "
+                    "(first failure: logs/%s.oom-first.log)" % (step.name, step.name))
+            # The first attempt populated FailGate; retry this step directly without
+            # releasing unrelated blocked steps or retrying any other kind of crash.
+            results[step.name] = run_step(ctx, man, step, i, len(chosen), must_run=True)
+    finally:
+        ctx.jobs = jobs
 
 
 def copy_client_exe(ctx, cl, man):
@@ -624,7 +698,7 @@ def copy_client_exe(ctx, cl, man):
         shutil.copyfile(src, dst)
     man.record("client_exe", status="ok", key=cl.sha256, outputs=[rel], rc=0, seconds=time.time() - t0,
                note="the client's own executable (integrity check, anti-cheat answers)",
-               identity=ctx.identity({}, cl.locale, py=False, png=False, builtin="x"))
+               identity=ctx.identity({}, cl.locale, py=False, png=False))
     ctx.say("client executable: %s -> %s (%s)" % (cl.exe, rel, "up to date" if same else "copied"))
 
 
@@ -746,8 +820,86 @@ def locales_doc(cl):
             "layout": "data/ = primary locale; data/locale/<xxYY>/ = the localized files of the others"}
 
 
+def _map_name(name):
+    name = name.split("@", 1)[0]
+    return next((name[len(p):] for p in ("terrain_holes_", "terrain_", "doodads_", "minimap_") if name.startswith(p)), None)
+
+
+def update_scope(ctx, man):
+    """Expand recipes within installed groups, retaining installed map boundaries."""
+    recorded = man.doc.get("steps", {})
+    bases = {n.split("@", 1)[0] for n in recorded}
+    installed_maps = {_map_name(n) for n in bases} - {None}
+    # A protocol profile alone does not mean the player installed the whole tables group.
+    groups = {st.group for st in S.static_steps(ctx.bakers) if st.name in bases and st.name != "profile"}
+    explicit = getattr(ctx.a, "steps_explicit", False)
+    exact = {s.strip() for s in ctx.a.steps.split(",")} if explicit else set()
+    if not explicit:
+        tokens = set(recorded) | bases | groups
+        if installed_maps:
+            tokens.add("maps")
+        ctx.a.steps = ",".join(sorted(tokens)) or "-none-"
+
+    def allowed(st):
+        region = _map_name(st.name)
+        if st.group.startswith("maps:"):
+            return region in installed_maps or (explicit and (st.name in exact or st.base_name in exact))
+        return explicit or st.name in recorded or st.base_name in bases or st.group in groups
+    return allowed
+
+
+def plan_update(ctx):
+    """Read-only candidates, including unchanged steps and maps awaiting extracted metadata."""
+    man = Manifest(ctx.out, ctx.data)
+    allowed = update_scope(ctx, man)
+    groups = map_groups_wanted(ctx.a.steps)
+    available, maps_note = build_steps(ctx, groups, read_only=True)
+    skip = {s.strip() for s in ctx.a.skip.split(",") if s.strip()}
+    candidates = [s for s in select(available, ctx.a.steps, skip) if allowed(s)]
+    rows = plan_doc(ctx, candidates, man)
+    for st, row in zip(candidates, rows):
+        reason = update_reason(ctx, man, st)
+        row.update(reason=reason, selected=bool(reason), deferred=False)
+        if reason and row["state"] != "program-missing":
+            row["state"] = "run"
+    if maps_note:
+        known = {s.name for s in candidates}
+        regions = {_map_name(n) for n in man.doc["steps"]} - {None}
+        tokens = {s.strip() for s in ctx.a.steps.split(",")}
+        if getattr(ctx.a, "steps_explicit", False):
+            regions |= {_map_name(n) for n in tokens if not any(c in n for c in "*?[")} - {None}
+        for region in sorted(regions):
+            m = _AnyMap()
+            m.dir = m.lower = region
+            m.global_wmo, m.tiles = False, []
+            for st in S.map_steps("installed", m):
+                if st.name in known or st.name in skip or not allowed(st):
+                    continue
+                # Without the client's map table the region's category is unknown.
+                # A category selection retains installed regions for deferred resolution.
+                if not select([st], ctx.a.steps, skip) and not groups:
+                    continue
+                if getattr(ctx.a, "steps_explicit", False) and not select([st], ctx.a.steps, skip):
+                    if not tokens.intersection(set(S.MAP_GROUPS) | {"maps", "world", "default", "all"}
+                                               | {"maps:" + g for g in S.MAP_GROUPS}):
+                        continue
+                rec = man.step(st.name) or {}
+                rows.append({"name": st.name, "group": st.group, "title": st.title,
+                         "locale": (rec.get("identity") or {}).get("input", {}).get("locale", ctx.client.locale),
+                         "outputs": st.outputs, "last_seconds": rec.get("seconds"), "state": "needs-work",
+                         "reason": "Map metadata is not in the work folder; extract it to compare this recipe",
+                         "selected": True, "deferred": True})
+    ctx.event("plan", update=True, read_only=True, steps=rows, maps_note=maps_note)
+    if not ctx.json:
+        for row in rows:
+            print("%-34s %-16s %s" % (row["name"], row["state"], row["reason"] or "current"))
+        if maps_note:
+            print(maps_note)
+    return 0
+
+
 def prepare_mode(ctx, later=None):
-    """--update / --repair: which recorded steps are re-made. Sets --steps to the recorded steps and returns
+    """--update / --repair: which selected or installed steps are re-made. Returns
     (narrow(chosen) -> the steps to re-make, the target files the repair check found bad). A language added
     later: the new locales' copies of the localized steps the output was made with."""
     a = ctx.a
@@ -765,13 +917,14 @@ def prepare_mode(ctx, later=None):
     man = Manifest(ctx.out, ctx.data)
     recorded = man.doc.get("steps", {})
     if a.update:
-        names = set(recorded) | {n.split("@", 1)[0] for n in recorded}   # + the copies for a newly added locale
-        a.steps = ",".join(sorted(names))
+        allowed = update_scope(ctx, man)
         said = set()
 
         def narrow(steps):
             out = []
             for st in steps:
+                if not allowed(st):
+                    continue
                 why = update_reason(ctx, man, st)
                 if why:
                     out.append(st)
@@ -810,7 +963,7 @@ def update_reason(ctx, man, st):
     ident = ctx.step_identity(st)
     if rec["identity"] != ident:
         return "changed: " + CK.identity_diff(rec["identity"], ident)
-    if rec.get("key") != ctx.step_key(st):
+    if rec.get("key") != ctx.resume_key(st, rec):
         return "command line changed"
     if not man.up_to_date(st.name, rec["key"], ident):
         return "files missing or changed"

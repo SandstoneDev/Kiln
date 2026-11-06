@@ -120,6 +120,7 @@ constexpr uint32_t kKindPoints = 12;
 // 193) is in g_anims already. Baked right after Stand / Walk / Run so the
 // --max-anim-kb cap drops other things first.
 const std::vector<uint32_t> kMountAnims = {37, 38, 39, 40, 94};
+bool g_spellAnimations = true;
 bool g_animate = true;          // --no-anim: only the static m_ (as before)
 // Priority order (a --max-anim-kb cap drops from the end; Stand's other
 // variations - the idle fidgets - come after everything listed here, the
@@ -149,6 +150,7 @@ bool g_npcPlayerRules = true;
 // display, --gameobjects adds them to a --display bake, --no-gameobjects leaves them out, --go-display N,N picks some.
 bool g_gameObjects = false, g_noGameObjects = false;
 std::vector<uint32_t> g_goDisplays;
+std::atomic<int> g_scopedFailures{0}; // PSP: qualified correctness failures are fatal, never warn_rc4
 std::atomic<int> g_verifyOver{0};  // models whose n_ / p_ verify passed the limit
 std::string g_dumpDir;
 
@@ -698,6 +700,7 @@ struct ModelPlan {
     size_t bothWays = 0;  // files the model draws both opaque and with alpha (they keep the plain texture)
     // Bake results.
     bool baked = false;
+    bool scopedQuality = false; // PSP: set only after complete source/consumer qualification
     std::vector<uint16_t> batchGeoset;   // per output batch, LOD 0 then LOD 1
     std::vector<uint16_t> batchTex;      // per output batch: x_<n>, kNoTexture or kTexSlot + type
     float height = 0.0f;
@@ -781,6 +784,22 @@ bool slotOpaque(const ModelPlan& mp, std::initializer_list<uint32_t> types) {
     return any;
 }
 
+// PSP: hash every potential input view, including absence of higher LODs.
+// The exact source variant is immutable; no planner-dependent n_ number qualifies.
+ScopedSkinSource scopedSourceAt(const std::string& root,const ModelPlan& mp,const std::vector<uint8_t>& m2) {
+    ScopedSkinSource source;source.model=skinSourceSha256(m2);
+    const std::string base=mp.key.substr(0,mp.key.size()-3);
+    for(unsigned s=0;s<4;++s) {
+        char suffix[16];std::snprintf(suffix,sizeof(suffix),"%02u.skin",s);
+        const std::string path=root+"/"+base+suffix;std::error_code ec;
+        if(std::filesystem::exists(path,ec)) {
+            std::vector<uint8_t> bytes;
+            source.skins[s]=readFile(path,bytes)?skinSourceSha256(bytes):"unreadable";
+        } else if(ec)source.skins[s]="unreadable";
+    }
+    return source;
+}
+
 class ModelBaker {
 public:
     ModelBaker(std::string root, const TexturePlan& tex, SortedPakWriter& out, std::mutex& outMutex)
@@ -792,8 +811,11 @@ public:
         if (!readFile(root_ + "/" + mp.key, m2) ||
             !loadM2(m2, root_ + "/" + lower(pipeline::skinPathForM2(mp.path)), model)) {
             appendf(mp.log, "  model %s: unreadable\n", mp.key.c_str());
+            if(mp.scopedQuality)++g_scopedFailures;
             return;
         }
+        if(mp.scopedQuality&&!scopedSkinSourceMatches(scopedSourceAt(root_,mp,m2)))
+            throw std::runtime_error("qualified source changed after planning");
         const std::vector<pipeline::M2Vertex> bindVertices = model.vertices;  // before the stand pose
         const bool posed = poseStand(root_, mp.path, m2, model);
         WmdlBuilder o;
@@ -852,11 +874,16 @@ public:
                 posed ? "stand" : "bind", mp.height, mp.rideable ? ", seat" : "");
         add("m_" + std::to_string(mp.id), kKindCreatureModel, blob);
         std::vector<uint8_t> nBlob;
+        std::vector<std::set<float>> pointPins; // PSP: per-model dense anchors, consumed immediately by WATP QA
         if (g_animate && posed)
-            nBlob = bakeAnimated(mp, m2, model, bindVertices, skinBatches, lod0Batches);
-        else if (g_animate)
+            nBlob = bakeAnimated(mp, m2, model, bindVertices, skinBatches, lod0Batches,&pointPins);
+        else if (g_animate) {
             appendf(mp.log, "  n_%d: no Stand pose (no bones or Stand .anim missing) - static only\n", mp.id);
-        bakePoints(mp, model, bindVertices, posed, nBlob.empty() ? nullptr : &nBlob);
+            if(mp.scopedQuality)++g_scopedFailures;
+        }
+        if(mp.scopedQuality&&nBlob.empty())++g_scopedFailures;
+        bakePoints(mp, model, bindVertices, posed, nBlob.empty() ? nullptr : &nBlob,
+                   mp.scopedQuality?&pointPins:nullptr);
         mp.baked = true;
     }
 
@@ -923,7 +950,8 @@ private:
     // from the tight bounds of the M2's vertices (EntitySpawner::processPendingMount / loadRemoteMountModel:
     // maxZ * 0.8, else extent * 0.75, else 1.8).
     void bakePoints(ModelPlan& mp, const pipeline::M2Model& model, const std::vector<pipeline::M2Vertex>& bind,
-                    bool posed, const std::vector<uint8_t>* nBlob) {
+                    bool posed, const std::vector<uint8_t>* nBlob,
+                    const std::vector<std::set<float>>* pointPins) {
         float riderHeight = 1.8f;
         if (!bind.empty()) {
             float minZ = bind[0].position.z, maxZ = bind[0].position.z;
@@ -948,8 +976,10 @@ private:
         rider.stand[0] = rider.stand[4] = rider.stand[8] = 1.0f;
         const std::vector<fmt::AttachPoint> extra = {rider};
         AttachBakeInfo ai;
+        const SkinVisibilityPolicy pointPolicy;
         std::vector<uint8_t> watp =
-            bakeAttachTable(model, posed ? findSequence(model, 0) : -1, nBlob, g_verify, ai, &ids, &extra);
+            bakeAttachTable(model, posed ? findSequence(model, 0) : -1, nBlob, g_verify, ai, &ids, &extra,
+                            mp.scopedQuality?&pointPolicy:nullptr,pointPins);
         float seatZ = -1.0f;
         for (const auto& a : model.attachments)
             if (a.id == 0) {
@@ -958,11 +988,14 @@ private:
             }
         appendf(mp.log, "  p_%d: %zu points (%zu in n_), seat0 z %.2f, rider height %.2f", mp.id, ai.points,
                 ai.inSkin, seatZ, riderHeight);
-        if (g_verify && ai.samples) appendf(mp.log, ", verify max %.4f yd (%s)", ai.maxErr, ai.worst.c_str());
+        if (g_verify && ai.samples) appendf(mp.log, ", verify max %.9g yd (%s), %zu samples (%zu static)", ai.maxErr, ai.worst.c_str(),ai.samples,ai.staticSamples);
         appendf(mp.log, "\n");
         if (g_verify && ai.maxErr > g_verifyLimit) {
             ++g_verifyOver;
             appendf(mp.log, "  VERIFY p_%d over the limit\n", mp.id);
+        }
+        if(mp.scopedQuality&&(!std::isfinite(ai.maxErr)||ai.maxErr>.02f)) {
+            ++g_scopedFailures;appendf(mp.log,"  SCOPED QUALITY FAILURE p_%d: absolute point gate\n",mp.id);
         }
         mp.points = ai.points;
         mp.pBytes = watp.size();
@@ -973,7 +1006,8 @@ private:
     // skinned for the GE with the NPC sequences. Returns the blob (empty: static only).
     std::vector<uint8_t> bakeAnimated(ModelPlan& mp, const std::vector<uint8_t>& m2, pipeline::M2Model& model,
                                       const std::vector<pipeline::M2Vertex>& bind,
-                                      const std::vector<SkinBatchIn>& batches, size_t lod0Batches) {
+                                      const std::vector<SkinBatchIn>& batches, size_t lod0Batches,
+                                      std::vector<std::set<float>>* pointPins) {
         if (batches.size() != mp.batchGeoset.size()) {
             appendf(mp.log, "  n_%d: %zu skin batches for %zu model batches - static only\n", mp.id, batches.size(),
                     mp.batchGeoset.size());
@@ -982,12 +1016,7 @@ private:
         // Wanted ids in priority order: the list (mounts: the jump set after Stand / Walk / Run), the spawns'
         // emote states, the NPC one-shot emotes; Stand's other variations; the state emotes last.
         const std::vector<uint32_t> ids = wantedAnims(mp.rideable, mp.extraAnims);
-        std::vector<uint16_t> keep;  // the bones of every point "p_" names
-        for (uint16_t id : fmt::kCreaturePointIds) {
-            uint16_t bone = 0;
-            glm::vec3 off;
-            if (findAttachmentBone(model, id, bone, off)) keep.push_back(bone);
-        }
+        const auto keep=creatureAttachmentKeepBones(model,mp.scopedQuality);
         std::vector<int> seqs, late;
         auto addFirst = [&](uint32_t id, std::vector<int>& to) -> int {
             const int first = findSequence(model, id);
@@ -1021,17 +1050,21 @@ private:
             return {};
         }
         const int standSeq = findSequence(model, 0);
+        const auto qualityModel=attachmentWitnessModel(model);
+        const SkinVisibilityPolicy scopedPolicy;
+        const auto* policy=mp.scopedQuality?&scopedPolicy:nullptr;
+        const size_t animationBudget=mp.scopedQuality?600u*1024u:384u*1024u;
         SkinBakeInfo si;
         auto bakeFirst = [&](size_t n, SkinBakeInfo& info) {
             const std::vector<int> prefix(seqs.begin(), seqs.begin() + static_cast<std::ptrdiff_t>(n));
-            return bakeSkinned(model, bind, batches, prefix, standSeq, g_rate, info, false,
-                               keep.empty() ? nullptr : &keep);  // mounts (seat bones)
+            return bakeSkinned(qualityModel, bind, batches, prefix, standSeq, g_rate, info, false,
+                               keep.empty() ? nullptr : &keep,nullptr,animationBudget,policy);  // mounts (seat bones)
         };
         // The cap keeps the longest prefix of the priority list that fits (the animation bytes grow with
         // every sequence): one bake when all fit, else a binary search (was one bake per dropped sequence).
         std::vector<uint8_t> blob = bakeFirst(seqs.size(), si);
         size_t dropped = 0;
-        if (!blob.empty() && g_maxAnimKb && si.animBytes > g_maxAnimKb * 1024u && seqs.size() > 1) {
+        if (!mp.scopedQuality && !blob.empty() && g_maxAnimKb && si.animBytes > g_maxAnimKb * 1024u && seqs.size() > 1) {
             size_t lo = 1, hi = seqs.size() - 1;  // the answer is in [lo, hi]; prefix lo is kept even over the cap
             while (lo < hi) {
                 const size_t mid = (lo + hi + 1) / 2;
@@ -1046,6 +1079,7 @@ private:
         }
         if (blob.empty()) {
             appendf(mp.log, "  n_%d: skinned bake failed - static only\n", mp.id);
+            if(mp.scopedQuality)++g_scopedFailures;
             return {};
         }
         // LOD split for the PSP (psp_model_format.hpp kSkinHasLod).
@@ -1075,7 +1109,22 @@ private:
         if (g_verify) {
             std::vector<uint8_t> dump;
             const SkinVerifyResult r =
-                verifySkinned(blob, model, bind, seqs, si, batches, g_dumpDir.empty() ? nullptr : &dump, nullptr);
+                verifySkinned(blob, mp.scopedQuality?qualityModel:model, bind, seqs, si, batches,
+                              g_dumpDir.empty() ? nullptr : &dump, nullptr,policy);
+            if(mp.scopedQuality) {
+                fmt::SkinView checked;bool retained=checked.init(blob.data(),static_cast<uint32_t>(blob.size()));
+                retained=retained&&checked.h->sequenceCount==seqs.size();
+                for(size_t i=0;retained&&i<seqs.size();++i) {
+                    const auto& source=model.sequences[seqs[i]];const auto& target=checked.sequences[i];
+                    retained=source.id==target.animId&&source.variationIndex==target.variation&&source.duration==target.durationMs;
+                }
+                const bool accepted=retained&&scopedSkinResultFits(seqs.size(),checked.h?checked.h->sequenceCount:0,
+                    si.animBytes,blob.size(),static_cast<float>(r.maxErr),0);
+                appendf(mp.log,"  SCOPED PROOF n_%d: visible %.9g raw %.9g checked %zu jointly-clipped %zu times %zu "
+                    "anims %zu bytes %zu ceiling 614400 retained %s\n",mp.id,r.maxErr,r.rawMaxErr,r.samples,
+                    r.clippedSamples,r.probeTimes,seqs.size(),si.animBytes,retained?"yes":"NO");
+                if(!accepted){++g_scopedFailures;appendf(mp.log,"  SCOPED QUALITY FAILURE n_%d: no sequence pruning allowed\n",mp.id);}
+            }
             appendf(mp.log, "  verify n_%d: max %.4f yd, rms %.5f yd over %zu vertex samples; worst: %s\n", mp.id,
                     r.maxErr, r.samples ? std::sqrt(r.sumSq / static_cast<double>(r.samples)) : 0.0, r.samples,
                     r.worst.c_str());
@@ -1094,6 +1143,7 @@ private:
         if (!g_dumpDir.empty()) dumpSkinText(blob, mp.key, g_dumpDir + "/n_" + std::to_string(mp.id) + ".txt");
         mp.nBytes = blob.size();
         mp.animBytes = si.animBytes;
+        if(mp.scopedQuality&&pointPins)*pointPins=std::move(si.verificationTimes);
         add("n_" + std::to_string(mp.id), kKindCreatureSkin, blob);
         return blob;
     }
@@ -1410,6 +1460,38 @@ private:
     std::unordered_map<std::string, int> modelByKey_;
     int nextModelId_ = 0;
 };
+
+// PSP: this audited consumer contract covers ordinary live NPCs and mounts,
+// portraits and outward outlines in the current renderer. Arbitrary setUnits,
+// gameobjects and static spawn records are outside this proof. Re-audit the
+// envelope if those renderer transforms/projection/scale bounds change.
+void qualifyScopedModels(const std::string& root,const Tables& db,bool spawnInput,
+                         std::vector<ModelPlan>& models) {
+    for(auto& mp:models) {
+        if(mp.m2Bytes!=799024)continue;
+        std::vector<uint8_t> m2;if(!readFile(root+"/"+mp.key,m2)||!scopedSkinModelMatches(m2))continue;
+        ScopedSkinContext context;context.completeNpcAliases=true;context.hasSpawnInput=spawnInput;
+        context.consumerEnvelope=122934;context.requestedAnimationBudget=static_cast<size_t>(g_maxAnimKb)*1024u;
+        const auto key=backslashLower(mp.key);
+        for(const auto& [id,row]:db.displays)if(backslashLower(db.pathFor(id))==key) {
+            float scale=row.scale;
+            if(auto at=db.modelScale.find(row.modelId);at!=db.modelScale.end())scale*=at->second;
+            context.aliasScales.push_back(scale);context.hasHumanoidAlias|=row.extraId!=0;
+        }
+        pipeline::DBCFile godi;context.completeGameObjectAliases=loadDbc(root,"gameobjectdisplayinfo.dbc",godi);
+        if(context.completeGameObjectAliases)for(uint32_t r=0;r<godi.getRecordCount();++r)
+            context.hasGameObjectAlias|=backslashLower(goanim::goModelPath(godi.getString(r,1)))==key;
+        const auto source=scopedSourceAt(root,mp,m2);
+        mp.scopedQuality=qualifyScopedSkin(source,context)&&g_animate&&g_verify&&g_verifyLimit==.02f&&g_dumpDir.empty();
+        std::printf("scoped skin context: %s, %zu NPC aliases, complete GO table %s\n",
+            mp.scopedQuality?"qualified600KiB/all-wanted":"ordinary strict384",context.aliasScales.size(),
+            context.completeGameObjectAliases?"yes":"NO");
+        appendf(mp.log,"  scoped source %s: %s (%zu complete NPC aliases; GO table %s; effective-scale1; "
+            "default384; strictverify; no spawn input; all skin signatures)\n",mp.key.c_str(),
+            mp.scopedQuality?"qualified600KiB, all wanted sequences":"not qualified: ordinary strict384 path",
+            context.aliasScales.size(),context.completeGameObjectAliases?"read":"MISSING");
+    }
+}
 
 // Without a geoset filter upstream draws every batch but the cloak, the
 // eye glow and group 18.
@@ -1765,7 +1847,7 @@ int main(int argc, char** argv) {
         else if (a == "--map" && i + 1 < argc) mapId = static_cast<uint32_t>(std::atoi(argv[++i]));
         // Creature anim.
         else if (a == "--no-anim") g_animate = false;
-        else if (a == "--anims" && i + 1 < argc) g_anims = parseIdList(argv[++i]);
+        else if (a == "--anims" && i + 1 < argc) {g_anims = parseIdList(argv[++i]);g_spellAnimations=false;}
         else if (a == "--npc-emotes" && i + 1 < argc) g_npcEmotes = parseIdList(argv[++i]);
         else if (a == "--no-state-emotes") g_useStateEmotes = false;
         else if (a == "--rate" && i + 1 < argc) g_rate = std::max(1.0f, static_cast<float>(std::atof(argv[++i])));
@@ -1812,6 +1894,14 @@ int main(int argc, char** argv) {
     if (!db.load(root)) {
         std::fprintf(stderr, "missing DBC under %s/dbfilesclient\n", root.c_str());
         return 1;
+    }
+    if(g_animate && g_spellAnimations) {
+        pipeline::DBCFile spellKits;
+        if(loadDbc(root,"spellvisualkit.dbc",spellKits) && spellKits.getFieldCount()>2)
+            for(uint32_t row=0;row<spellKits.getRecordCount();++row)for(uint32_t field:{1u,2u}) {
+                const uint32_t id=spellKits.getUInt32(row,field);
+                if(id && id<65535 && std::find(g_anims.begin(),g_anims.end(),id)==g_anims.end())g_anims.push_back(id);
+            }
     }
     std::vector<SpawnRow> spawns;
     if (!spawnsPath.empty() && !readSpawns(spawnsPath, spawns)) {
@@ -1991,6 +2081,7 @@ int main(int argc, char** argv) {
     std::mutex writerMutex;
     std::mutex progressMutex;
 
+    qualifyScopedModels(root,db,!spawnsPath.empty(),planner.models);
     // ---- 2. textures (threads) ----
     const auto tTex = std::chrono::steady_clock::now();
     std::atomic<size_t> texDone{0}, texFailed{0};
@@ -2029,9 +2120,11 @@ int main(int argc, char** argv) {
     parallelFor(models.size(), jobs, order, [&](size_t i) {
         try {
             baker.bake(models[i]);
+            if(models[i].scopedQuality&&!models[i].baked)++g_scopedFailures;
         } catch (const std::exception& ex) {
             appendf(models[i].log, "  model %s: exception %s\n", models[i].key.c_str(), ex.what());
             models[i].baked = false;
+            if(models[i].scopedQuality)++g_scopedFailures;
         }
         const size_t n = ++modelsDone;
         if (n % 50 == 0 || n == models.size()) {
@@ -2140,6 +2233,10 @@ int main(int argc, char** argv) {
             // A read-back error stays 3 (a broken pak).
             if (!rc) rc = 4;
         }
+    }
+    if(g_scopedFailures.load()) {
+        std::fprintf(stderr,"SCOPED QUALITY FAILURE: %d correctness failures; refusing success or warn_rc4\n",g_scopedFailures.load());
+        rc=2;
     }
     std::printf("bake time %.1f s (%.1f min), jobs %u\n", secondsSince(t0), secondsSince(t0) / 60.0, jobs);
     return rc;

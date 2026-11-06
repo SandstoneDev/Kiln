@@ -2415,6 +2415,7 @@ FONTS = [
     ("font_normal", "fonts/frizqt__.ttf", 13),
     ("font_title", "fonts/morpheus.ttf", 18),
     ("font_tiny", "fonts/frizqt__.ttf", 8),  # dense blocks (PaperDoll stats)
+    ("font_combatcrit", "fonts/frizqt__.ttf", 18),  # PSP: larger combat numbers, same face as normal hits
 ]
 
 

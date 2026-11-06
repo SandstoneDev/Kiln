@@ -95,6 +95,7 @@ public:
         bake(path, bm);
         return models_.emplace(path, bm).first->second;
     }
+
     size_t count() const { return count_; }
     // Upstream WorldLoader marks a global WMO's doodads setSkipWallCollision - their
     // collision meshes are floors only (no kColBlocksWalls). Every M2 of such a pak belongs to the instance.
@@ -155,8 +156,8 @@ private:
                 texFlags = t.flags;
                 if (t.type == 0 && !name.empty()) {
                     // An opaque material that stays opaque (not foliage made cutout) ignores the alpha.
-                    const bool opaque = mapBlend(blendMode) == fmt::kBlendOpaque && !foliage;
-                    const int id = tex_.get(name, texAlpha, opaque);
+                    const bool opaque = mapBlend(blendMode) == fmt::kBlendOpaque;
+                    const int id = tex_.get(name, texAlpha, opaque, foliage);
                     if (id < 0) continue;  // upstream: batch opacity 0
                     ob.texture = static_cast<uint16_t>(id);
                     texName = name;
@@ -227,12 +228,12 @@ private:
                         full.vertices.size(), static_cast<double>(size.x), static_cast<double>(size.y),
                         static_cast<double>(size.z));
         }
-        if (cls.isInvisibleTrap || (cls.isSpellEffect && (meshInEffect || !gParticleBank)) || cls.isFireflyEffect ||
+        if (cls.isGroundDetail || cls.isInvisibleTrap || (cls.isSpellEffect && (meshInEffect || !gParticleBank)) || cls.isFireflyEffect ||
             cls.isSkyBird || emitterVolume) {
             ++skipped_;
             return;
         }
-        const bool foliage = cls.isFoliageLike;
+        const bool foliage = cls.isFoliageLike || cls.isGroundDetail;
 
         WmdlBuilder o;
         // Big triangles next to the camera vanish at the screen corners (the
@@ -1336,6 +1337,8 @@ int main(int argc, char** argv) {
             st = (st ^ 0x1Fu) * 16777619u;  // separator
         };
         mix(lower(map));
+        mix("ground-effects-v2-density");
+        mix("foliage-material-alpha-v2"); // changed model-ID allocation: old big-WMO companions must not match
         mix(std::to_string(fmt::kBigWmoVersion) + "/" + std::to_string(fmt::kModelFormatVersion));
         for (auto [x, y] : tiles) mix(std::to_string(x) + "_" + std::to_string(y));
         for (int i = 1; i < argc; ++i) {

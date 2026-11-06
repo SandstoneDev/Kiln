@@ -13,12 +13,26 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import threading
 import time
 
 FILE_NAME = "kiln.manifest.json"
 SCHEMA = 1          # new fields are added compatibly (a reader ignores what it does not know)
 HASH = "sha256"
+
+
+def safe_output_path(path):
+    """Recorded paths are relative files, including when adopted from a card."""
+    parts = path.replace("\\", "/").split("/")
+    reserved = re.compile(r"(?:CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\..*)?\Z", re.I)
+    return all(part and part not in (".", "..") and not part.endswith((".", " "))
+               and not reserved.fullmatch(part) and not any(c in '<>:"|?*' or ord(c) < 32 for c in part)
+               for part in parts)
+
+
+class ManifestError(ValueError):
+    """An existing manifest cannot be safely used as update history."""
 
 
 def sha256_file(path, chunk=1 << 22):
@@ -42,11 +56,35 @@ class Manifest:
             try:
                 with open(self.path, encoding="utf-8") as f:
                     doc = json.load(f)
-                if doc.get("schema") == SCHEMA:
-                    self.doc = doc
-                    self.doc.setdefault("hash", HASH)
-            except (OSError, ValueError):
-                pass                        # a damaged manifest = no manifest: every step re-runs
+                if not isinstance(doc, dict) or doc.get("schema") != SCHEMA:
+                    raise ValueError("unsupported schema")
+                if not isinstance(doc.get("steps"), dict):
+                    raise ValueError("steps must be an object")
+                for field in ("client", "locales"):
+                    if field in doc and not isinstance(doc[field], dict):
+                        raise ValueError("%s must be an object" % field)
+                sources = doc.get("locales", {}).get("sources", {})
+                if not isinstance(sources, dict) or any(not isinstance(src, dict) for src in sources.values()):
+                    raise ValueError("locale sources must be objects")
+                for name, st in doc["steps"].items():
+                    if not isinstance(st, dict) or not isinstance(st.get("outputs", []), list):
+                        raise ValueError("invalid step %s" % name)
+                    if "identity" in st:
+                        ident = st["identity"]
+                        if (not isinstance(ident, dict) or not isinstance(ident.get("programs", {}), dict)
+                                or not isinstance(ident.get("input", {}), dict)):
+                            raise ValueError("invalid identity in step %s" % name)
+                    for row in st.get("outputs", []):
+                        if (not isinstance(row, dict) or not isinstance(row.get("path"), str)
+                                or not isinstance(row.get("size"), int) or not isinstance(row.get("sha256"), str)):
+                            raise ValueError("invalid output in step %s" % name)
+                        if not safe_output_path(row["path"]):
+                            raise ValueError("unsafe recorded output path in step %s" % name)
+                self.doc = doc
+                self.doc.setdefault("hash", HASH)
+            except (OSError, ValueError) as e:
+                raise ManifestError("Cannot read Kiln manifest %s: %s. Restore a valid manifest before updating; "
+                                    "the existing data has not been changed." % (self.path, e)) from e
 
     def save(self):
         with self.lock:
@@ -65,7 +103,7 @@ class Manifest:
         return {"path": rel.replace(os.sep, "/"), "size": st.st_size, "sha256": sha256_file(full),
                 "mtime_ns": st.st_mtime_ns}
 
-    def record(self, name, *, status, key, outputs, rc, seconds, note="", identity=None):
+    def record(self, name, *, status, key, outputs, rc, seconds, note="", identity=None, key_version=None):
         files = [self.file_record(r) for r in sorted(outputs)]
         with self.lock:
             self.doc["steps"][name] = {
@@ -74,6 +112,8 @@ class Manifest:
             }
             if identity is not None:
                 self.doc["steps"][name]["identity"] = identity
+            if key_version is not None:
+                self.doc["steps"][name]["key_version"] = key_version
 
     def mark(self, name, **fields):
         with self.lock:

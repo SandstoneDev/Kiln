@@ -135,6 +135,7 @@ public sealed class Settings
     public string Server { get; set; } = "logon.therawow.com";
     public int Jobs { get; set; }
     public List<string> Groups { get; set; } = new();
+    public bool Compact { get; set; }
     public bool LowPriority { get; set; }
     public bool Advanced { get; set; }                 // the advanced settings were open
 

@@ -345,7 +345,7 @@
    "why": "dependency of the converters"
   },
   "include/core/geoset_rules.hpp": {
-   "sha256": "c1283d05302e34ef5d296180e7d45159dd9a03ee3fa514ee7724b8a97e1f3cdc",
+   "sha256": "c7aa4f242fb3abe42d12b32a4d765deef349b50d8faff43fe25f4cc6e3e8b02e",
    "why": "dependency of the converters"
   },
   "include/core/helm_visual.hpp": {
@@ -484,8 +484,16 @@
    "sha256": "d7bc65c1d6b6df6c40297431e15ae74a2a89b7c7b5f59e1e4dcafb11a9838841",
    "why": "dependency of the converters"
   },
+  "include/platform/psp/psp_bigheap.hpp": {
+   "sha256": "cc10b2b4d09957e92235ec2a805427fdf4b27ba7e910f172351e6c534bafdac9",
+   "why": "included by src/rendering/psp/psp_equipment.cpp"
+  },
+  "include/platform/psp/psp_config.hpp": {
+   "sha256": "9c253d75daea5ccb8b54d80b917cbd4972d175c4f7962810b0e0fa5f2cfcf1a1",
+   "why": "included by src/rendering/psp/psp_equipment.cpp"
+  },
   "include/platform/psp/psp_display.hpp": {
-   "sha256": "e4e3466e1e9717168c415cb6b21f4966e5677364ddb4cf68ad1abaef7b6f9511",
+   "sha256": "3b44f790887e6a6d248bbdf165812632b33dfabc402d435dbdb2b586161ea277",
    "why": "included by include/rendering/psp/psp_sky_grid.hpp"
   },
   "include/platform/psp/psp_fd_budget.hpp": {
@@ -496,12 +504,16 @@
    "sha256": "1f96c3d60ca981ecf125b609b33bb3afb327cc590cb423929f4f76ca141062d5",
    "why": "dependency of the converters"
   },
+  "include/platform/psp/psp_npc_asset_loader.hpp": {
+   "sha256": "f97996624fac9c8d45e10fecbc36a66a593207fb3e35cb5219938e9983291be8",
+   "why": "included by include/rendering/psp/psp_equipment.hpp"
+  },
   "include/platform/psp/psp_pak.hpp": {
    "sha256": "56ac3fe22d5e5fa8fb8fc55383892657236e2fca7499566a4bcaa6fefb0ef27a",
    "why": "dependency of the converters"
   },
   "include/platform/psp/psp_pak_index.hpp": {
-   "sha256": "a805e8d7e884438ba8b7e3a984beba3e673d617db666da908cb088b26a4c50a1",
+   "sha256": "41d99232a38a65eae5313ffc1f4dbd62cebc9442103a00ae34157b53e13a5a7e",
    "why": "dependency of the converters"
   },
   "include/platform/psp/psp_texture.hpp": {
@@ -553,15 +565,15 @@
    "why": "dependency of the converters"
   },
   "include/rendering/psp/psp_audio_format.hpp": {
-   "sha256": "1baffa5bec49ee3141ddcfb70159ddd0d2c6206d57d0295dcf82cca5ccd45783",
+   "sha256": "db6fef79da7a4628f545e4b31f40f657e3e3aef5302dc821a369a3fe86ce0142",
    "why": "dependency of the converters"
   },
   "include/rendering/psp/psp_bigwmo_format.hpp": {
-   "sha256": "862e4cc5c7c1fe8b3bfbdfa1721235b74621de8c2d77bbf6f857bf768244bb20",
+   "sha256": "cb1f6424f5f90f58dbf7335588e59497c446727a3c6c16af4b9cda569674cd20",
    "why": "dependency of the converters"
   },
   "include/rendering/psp/psp_bigwmo_vis.hpp": {
-   "sha256": "e8af04b39646b7c01491b82a6d42efe3a38483ad3c657e92e6628f2d567e37a1",
+   "sha256": "3d6f5115bdca05534a478ef00b9b3c4fd02fa4bf014fcde6752971b329bc34b0",
    "why": "dependency of the converters"
   },
   "include/rendering/psp/psp_body_rules.hpp": {
@@ -581,8 +593,12 @@
    "why": "dependency of the converters"
   },
   "include/rendering/psp/psp_equipment.hpp": {
-   "sha256": "8637db3fced1de99331359abdb711089fdd1a38152de21c55c01b5e465eeb788",
+   "sha256": "e14971f7b8c2cc7320bd427eb0851129cc94401792ea0aceb246f67ff683cb51",
    "why": "dependency of the converters"
+  },
+  "include/rendering/psp/psp_fog_policy.hpp": {
+   "sha256": "5f9bba011353530f5aa340d100730d6607264e1bb6716d1588ef9a375f4492fb",
+   "why": "included by include/rendering/psp/psp_lighting_ge.hpp"
   },
   "include/rendering/psp/psp_gameobject_format.hpp": {
    "sha256": "4c6fb66db6e49b32e02deb53a9381d15ff3643faa9f8ad74a56b927213e37ce0",
@@ -600,6 +616,10 @@
    "sha256": "b9444a5db1a5b46c39eecfe1a42976a7012d806da0df3ce320981f4e8124a714",
    "why": "dependency of the converters"
   },
+  "include/rendering/psp/psp_item_lookup_cache.hpp": {
+   "sha256": "a8750d7547c98aa5fdbbebd04a491a86b7c7bfa6ad14f59e6bb9a7370c1ec708",
+   "why": "included by include/rendering/psp/psp_equipment.hpp"
+  },
   "include/rendering/psp/psp_item_npc_race.hpp": {
    "sha256": "8bfc8b39292f92e4b26a25e6465c643927424de082dedd53952fb42053f5c467",
    "why": "dependency of the converters"
@@ -609,11 +629,11 @@
    "why": "dependency of the converters"
   },
   "include/rendering/psp/psp_lighting.hpp": {
-   "sha256": "5a1d3d1bde02b78b73480b2dcde34e4eeac37d4912bc89b088f561c56f8b0ede",
+   "sha256": "27e7ea25153476c2c313fd3977455bf987056d348b2135eb5a987fdb1bad8601",
    "why": "dependency of the converters"
   },
   "include/rendering/psp/psp_lighting_ge.hpp": {
-   "sha256": "cbaaf5100997fc3940e397abb43bcd80a0bec50e77cedc24ac822646e6680a8c",
+   "sha256": "4e6f4c4043d37de5e468afde7b61bcc960aed2d523fef296fa3dd7c3d915b9f2",
    "why": "included by include/rendering/psp/psp_particles_l3.hpp"
   },
   "include/rendering/psp/psp_map_format.hpp": {
@@ -625,7 +645,7 @@
    "why": "dependency of the converters"
   },
   "include/rendering/psp/psp_model_format.hpp": {
-   "sha256": "d313b098b7a9301d60e2e1a5276ba155adeaefef8bd8896306e78a70901d61d9",
+   "sha256": "2a65e88e9dc129ec9b607be95d4c762c9951c3b8ac284c38d182729dfb44be43",
    "why": "dependency of the converters"
   },
   "include/rendering/psp/psp_particle_format.hpp": {
@@ -641,7 +661,7 @@
    "why": "included by tools/psp/converter/ptc_clean_reference.hpp"
   },
   "include/rendering/psp/psp_skeleton.hpp": {
-   "sha256": "002d5d68735c81744daf8892e25a8dd15f78e7a2001a41111854c5fa7e4f6c79",
+   "sha256": "fde1328c554b01f8976af5fa4aefad82c90097d464cda570d64756976173925f",
    "why": "dependency of the converters"
   },
   "include/rendering/psp/psp_sky_grid.hpp": {
@@ -649,15 +669,15 @@
    "why": "included by include/rendering/psp/psp_lighting_ge.hpp"
   },
   "include/rendering/psp/psp_sound_format.hpp": {
-   "sha256": "fd7fdafe9cd5a8ad33986f77f4cb9a7cd1f167271949c4f9f87a30135d19b0d8",
+   "sha256": "04156a448b774687ca313adbad623fc85d2e4fae3047a7be158d5877bbd326cc",
    "why": "dependency of the converters"
   },
   "include/rendering/psp/psp_spellfx_format.hpp": {
-   "sha256": "cca4fe2f47cabec492e1844e05aa53e105d6061cae13815918fc660efeacb6cb",
+   "sha256": "0a8034e37a01f88feaf97432dd1c874a5e7a3de2cac9e9b78a824d239e5fa10f",
    "why": "dependency of the converters"
   },
   "include/rendering/psp/psp_terrain.hpp": {
-   "sha256": "18159d0921401f9b5344f32fb5bcce664953c41c9b72f773cf6449facbc04ed2",
+   "sha256": "50b257cf769ae21cf379ca31feaf472026dd14224dda2e0e6cd4a6ed175508dc",
    "why": "included by include/rendering/psp/psp_particles_l3.hpp"
   },
   "include/rendering/psp/psp_terrain_pool.hpp": {
@@ -671,6 +691,14 @@
   "include/rendering/psp/psp_transport_format.hpp": {
    "sha256": "c1bf5ab7c176b677b343416ceaf48a0c700db3d29dc2ba4cb555d5b9f0b8e8fc",
    "why": "dependency of the converters"
+  },
+  "include/rendering/psp/psp_water_format.hpp": {
+   "sha256": "a6b1a5ad73059392434cc518ce1b3a9972dc5f3cc88725418c94b503f91ffe59",
+   "why": "included by tools/psp/converter/sound_bake.hpp"
+  },
+  "include/rendering/psp/psp_wmo_landmarks.hpp": {
+   "sha256": "4d4a5ccd255c001eaa2aac367f4ff5f35d66c0c228c83f8262a64f0bfde75d70",
+   "why": "included by tools/psp/converter/wmo_chunk_bake.hpp"
   },
   "include/rendering/psp/psp_worldmap_view.hpp": {
    "sha256": "db6df5dc31e36293403840190b5a4399b5aeebc7d9a54e1261d661ef8298b36f",
@@ -701,7 +729,7 @@
    "why": "dependency of the converters"
   },
   "include/ui/psp/ui_world_sound_paths.hpp": {
-   "sha256": "14235954e107f6664b2be5e94d5fb7dba6b3f5c07dcd3801038434050f521aa6",
+   "sha256": "7842dfefef601a6a3027b471706bdcedb1d18ed79be0bd07b5947b5c082aab49",
    "why": "dependency of the converters"
   },
   "include/ui/xml_parser.hpp": {
@@ -809,11 +837,11 @@
    "why": "dependency of the converters"
   },
   "src/rendering/m2_model_classifier.cpp": {
-   "sha256": "328f85a8896c91231fa48c34c88234e770c04e7d7d73c214ee3758d2d43ea972",
+   "sha256": "9c22859a6640a145a98b2f2d4cc15ade89d829512ec94d27b5859411c87be8df",
    "why": "dependency of the converters"
   },
   "src/rendering/psp/psp_equipment.cpp": {
-   "sha256": "4ad925e37a686d251823e41f156e0118fa9caf8a7e3a4971e4f8da9de226dc08",
+   "sha256": "dc4e32beafb7a9eb610d2339e2baae353f5fc490e8190c2881fff7f1e6460d46",
    "why": "dependency of the converters"
   },
   "src/rendering/psp/psp_equipment_dress.cpp": {
@@ -821,7 +849,7 @@
    "why": "dependency of the converters"
   },
   "src/rendering/psp/psp_lighting.cpp": {
-   "sha256": "052c52b2db045d4e5da088075e3a305ce5b0f4aca08328974812914302765dec",
+   "sha256": "0b9c766bbbdb01ce32a6ee32b1e23e6a8162d9269f3b69c2f3da695244b34857",
    "why": "dependency of the converters"
   },
   "src/rendering/psp/psp_particle_sim.cpp": {
@@ -948,6 +976,10 @@
    "sha256": "96be8d24263339a371ef868afc43d9e063ad0c54cb5d6ba8e6350ae6072e9ad4",
    "why": "Python bakers"
   },
+  "tools/psp/build_terrain_hole_overrides.py": {
+   "sha256": "7499d51e75ef89b428b469632a2bcedee173213559987d83d82a94075331ae87",
+   "why": "per-map terrain hole masks read from the user's local extracted ADTs"
+  },
   "tools/psp/build_text_pak.py": {
    "sha256": "b847c620780088b1344a020ecf188a5d5c4f5231ff3bafc2708a50b2d2ae994c",
    "why": "Python bakers"
@@ -957,7 +989,7 @@
    "why": "Python bakers"
   },
   "tools/psp/build_ui_pak.py": {
-   "sha256": "e27c1c35d21aa49e2102fd3556b8a142bb27e6ccaa821817188c17eba93b5b27",
+   "sha256": "19796cb53ac1beadaf3cd3d83e55064f5b4e2d051af21bcc5b2c2b13589a0a54",
    "why": "Python bakers"
   },
   "tools/psp/build_wotlk_pak.py": {
@@ -997,11 +1029,11 @@
    "why": "table bakers imported by build_text_pak.py and build_ui_pak.py"
   },
   "tools/psp/converter/CMakeLists.txt": {
-   "sha256": "b2be714827bf12b5d176a438e0842f091861e64e45bb75d35d4fcf42fbb05f98",
+   "sha256": "69cf0c32bf3b8327633ab88c99b632d5c782f1f0a0d137e52c58698226c734c3",
    "why": "converter project"
   },
   "tools/psp/converter/attach_bake.hpp": {
-   "sha256": "b161b75f44bb9bd866d6b3d1e8e47a377ebf0520cd77cdb3b3aef5d1b45b0a81",
+   "sha256": "0becd80fa512a1353a8e9e7ac2fde924d088bd7865fdd96d7ca0f6665f9802de",
    "why": "converter headers"
   },
   "tools/psp/converter/bigwmo_tools.hpp": {
@@ -1129,7 +1161,7 @@
    "why": "converter headers"
   },
   "tools/psp/converter/model_bake.hpp": {
-   "sha256": "ef4e3de07e5478411d30e032317350d98d4924d4c5c20b5c2bd3b1d4d5e1b28c",
+   "sha256": "391a847bbe97a1338ed1a3acdbb9ec5d2c86f7cfb9e97286568cff2b7683f67f",
    "why": "converter headers"
   },
   "tools/psp/converter/npc_outfit.cpp": {
@@ -1152,16 +1184,20 @@
    "sha256": "c2f569a49d8ce460ceb4116e46d2d51e145e6a546798877c23f9b9563b7ee472",
    "why": "converter headers"
   },
+  "tools/psp/converter/psp_animation_repair.cpp": {
+   "sha256": "61557ca515c9037c7ce92c87e1f6d9f2e6d96db639deb5509e027cae9d2699e8",
+   "why": "converter sources"
+  },
   "tools/psp/converter/psp_audio_conv.cpp": {
-   "sha256": "17ac27e1628ef1293ec93facdbf4bf0a2c5331b72bef0c86c5cdbce05fc64388",
+   "sha256": "1773eb7d7e8f461436f1cb5a30e7615824eb6faece0de983306590af2376aa23",
    "why": "converter sources"
   },
   "tools/psp/converter/psp_char_conv.cpp": {
-   "sha256": "be7afcdde3318d1d903dc156d6f3c83c7ccef8cc72a081966847a2d07573ce87",
+   "sha256": "518dc8d3dd0c456ff33ca9f0671dbeabb29a33e8d6c0df146b4693cb05cb7261",
    "why": "converter sources"
   },
   "tools/psp/converter/psp_creature_conv.cpp": {
-   "sha256": "4667ba5378d893806c7881f15dce14caaf4b8304b0230721ae4b1af8cd411ea5",
+   "sha256": "9bce79353ddeaa1134b42a3d148be9a95601b1ef85cdfc7cceeff88166f3aa4f",
    "why": "converter sources"
   },
   "tools/psp/converter/psp_dbc_conv.cpp": {
@@ -1184,6 +1220,10 @@
    "sha256": "e5f5fab14525f6ef5219ffb327241bc470b6f01a1596aaa2b3d7888da2ad2285",
    "why": "converter sources"
   },
+  "tools/psp/converter/psp_import_skin.cpp": {
+   "sha256": "04eed00d870f86864249d733e24e27fcd2eab472d99740542e3703cc49c7e64b",
+   "why": "converter sources"
+  },
   "tools/psp/converter/psp_item_conv.cpp": {
    "sha256": "4423464260db4c5166d1e68b1f7fb323307c74e1ea19f345d76250c9755b1754",
    "why": "converter sources"
@@ -1197,7 +1237,7 @@
    "why": "converter sources"
   },
   "tools/psp/converter/psp_model_conv.cpp": {
-   "sha256": "f15ed583e222e6f82908e9b2f9313cb168fe239037c23fcc4344afc417c9f949",
+   "sha256": "4c495f00f8d6515732890759f6e242bc419cea8c3f560817834ee81dd28756b9",
    "why": "converter sources"
   },
   "tools/psp/converter/psp_mpq_extract.cpp": {
@@ -1209,15 +1249,15 @@
    "why": "converter sources"
   },
   "tools/psp/converter/psp_sound_conv.cpp": {
-   "sha256": "bf406013da937771ba0dfffa91a7b68a31ea0e69bd56242d56fc7df126225c9d",
+   "sha256": "856d408eb874dbd7cec09d0ea6063a30a1cf5ccde51666e4483cd24e8ff159b9",
    "why": "converter sources"
   },
   "tools/psp/converter/psp_spellfx_conv.cpp": {
-   "sha256": "9d737e025551cbdf3456c80b161f40dc832c0f98ff02ec6a594527339995effd",
+   "sha256": "d4303964960bc116127b031b019ff7b08d24e12f5ad14eb0b59d3d35619e7d75",
    "why": "converter sources"
   },
   "tools/psp/converter/psp_terrain_conv.cpp": {
-   "sha256": "dbd42b144934d275ef40dc7f9cc4ccbe10ade28ed1e69fc4c6a9f05b3fffba2a",
+   "sha256": "88d98de63e07eccae8c5dd2f82f772264dc9f5d1f3f0ffc8f1c8c3e7d5b6a96a",
    "why": "converter sources"
   },
   "tools/psp/converter/ptc_clean_reference.cpp": {
@@ -1232,12 +1272,36 @@
    "sha256": "6e0ecdb3c5235fff502a98cbbfb9b74be1aa8301035b899d897cc223f09164c3",
    "why": "converter headers"
   },
+  "tools/psp/converter/skin_animation_repair.hpp": {
+   "sha256": "91ec363ef2ae27d07264f05e2f58ecaf43b662e6acf8307ce389c932c0d2bb06",
+   "why": "converter headers"
+  },
   "tools/psp/converter/skin_bake.hpp": {
-   "sha256": "d0373f8f5c9c5a95072212bf12014c6c2f143fa2493e7157f99a853a27297052",
+   "sha256": "ae21b1fb6674259b071dc2a116da04d0ba36dee4ecccbb4b90ec64e3a4e09895",
+   "why": "converter headers"
+  },
+  "tools/psp/converter/skin_fresh_import.hpp": {
+   "sha256": "df22396959786df769df99393ef6e98f6db20fb6b391701a013885127b171b5a",
+   "why": "converter headers"
+  },
+  "tools/psp/converter/skin_quality_policy.hpp": {
+   "sha256": "2d617d2b48092036150ef55c8daf640df972cdbb1cf20c380c01a587cfab06a8",
+   "why": "converter headers"
+  },
+  "tools/psp/converter/skin_visibility.hpp": {
+   "sha256": "71204a99b1ed8228680a146cf8f9202dc5c543b8098129346fa56121ae13a548",
+   "why": "converter headers"
+  },
+  "tools/psp/converter/skin_visibility_fast.hpp": {
+   "sha256": "e55f71ede7618a4f801b8a73b0b8807dec2751324ac385791f1e92535a7de38a",
    "why": "converter headers"
   },
   "tools/psp/converter/sound_bake.hpp": {
-   "sha256": "d7d4b922da666ed0fafdcbcebaaa9c18935bde1fffc83fe8a9a7abfddb1d9ec4",
+   "sha256": "5fdb078fbd78916bdfe616a43dc348d79023bac1c782438a270a779bda8ed027",
+   "why": "converter headers"
+  },
+  "tools/psp/converter/texture_alpha_policy.hpp": {
+   "sha256": "ac85993473903454bda8f530ce6eb81d41846d452f30f2a912b036f06e035260",
    "why": "converter headers"
   },
   "tools/psp/converter/transport_bake.hpp": {
@@ -1249,17 +1313,29 @@
    "why": "converter headers"
   },
   "tools/psp/converter/wmo_chunk_bake.hpp": {
-   "sha256": "9ac743ad55f81a2c748fbf00cd2266e5bf732cf5e43aeefc297f20fb7910a8d3",
+   "sha256": "5d66ae392fd75932403d584639230814dda4207984ba6464d5e893a235ab680c",
    "why": "converter headers"
   },
   "tools/psp/dungeon_list.py": {
    "sha256": "f0531f7540b9a82124b8ac9a9d3a19d40c1175d72e66d024fc3d47028fdcfff5",
    "why": "the port's dungeon and raid list (read from the client's map table)"
   },
+  "tools/psp/encode_ghost_mp3_windows.cpp": {
+   "sha256": "d38b1bcc0974683b4fa3b51ddc90c3bfa105ca2838f701d3e10faab833fe9d64",
+   "why": "standalone local ambience encoder source"
+  },
   "tools/psp/psp_texconv.py": {
    "sha256": "c0ff6eaaeca05ceac9ad84a836f6f571b24f0a78a4d2a3b62582f4e75cb6cbeb",
    "why": "texture packer used by the Python bakers"
+  },
+  "tools/psp/rebuild_ghost_ambience.sh": {
+   "sha256": "3ed983efa99965c289619cdad7e01c81b2c3f38b7108031240bedca871b82199",
+   "why": "optional local ambience conversion using the user's extracted audio"
+  },
+  "tools/psp/repair_wmo_landmarks.py": {
+   "sha256": "1427f8c4e396bb65070ccd36856ef604346681b5f7c18f82d8d42d750f83751e",
+   "why": "optional repair of the user's locally baked landmark metadata"
   }
  },
- "source_commit": "3f97f46bbd8631372dd64092818330078caaf2f7"
+ "source_commit": "d6c1860ccf0444676b50995af8fc29dba31965ae"
 }

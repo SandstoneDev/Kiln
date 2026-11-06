@@ -98,6 +98,21 @@ inline std::set<uint32_t> attachIdsOf(const pipeline::M2Model& model) {
     return ids;
 }
 
+// PSP: quality-only copy with every resolved point, including upstream fallbacks.
+// Resolve against the untouched original: appending to the attachment array must
+// never turn an originally invalid attachmentLookup index into a valid one.
+inline pipeline::M2Model attachmentWitnessModel(const pipeline::M2Model& model) {
+    auto quality=model;
+    for(uint32_t id:attachIdsOf(model)) {
+        uint16_t bone=0;glm::vec3 position;
+        if(!findAttachmentBone(model,id,bone,position))continue;
+        if(std::none_of(quality.attachments.begin(),quality.attachments.end(),[&](const auto& existing) {
+            return existing.bone==bone&&existing.position==position;
+        }))quality.attachments.push_back(pipeline::M2Attachment{id,bone,position});
+    }
+    return quality;
+}
+
 // Bones of the points the equipment rules use: kept in "n_" (keepBones).
 inline std::vector<uint16_t> attachmentKeepBones(const pipeline::M2Model& model) {
     std::vector<uint16_t> keep;
@@ -109,11 +124,25 @@ inline std::vector<uint16_t> attachmentKeepBones(const pipeline::M2Model& model)
     return keep;
 }
 
+// PSP: the scoped proof covers every emitted point, including vehicle seats.
+// Retain its real source bone instead of silently freezing a moving point.
+inline std::vector<uint16_t> creatureAttachmentKeepBones(const pipeline::M2Model& model,bool vehiclePoints) {
+    std::vector<uint16_t> keep;
+    std::vector<uint16_t> ids(std::begin(fmt::kCreaturePointIds),std::end(fmt::kCreaturePointIds));
+    if(vehiclePoints)ids.insert(ids.end(),std::begin(fmt::kVehicleSeatPointIds),std::end(fmt::kVehicleSeatPointIds));
+    for(uint16_t id:ids) {
+        uint16_t bone=0;glm::vec3 offset;
+        if(findAttachmentBone(model,id,bone,offset))keep.push_back(bone);
+    }
+    return keep;
+}
+
 struct AttachBakeInfo {
     size_t points = 0, inSkin = 0;
     float maxErr = 0.0f;       // --verify: PSP pose vs upstream pose, attachment position (yards)
     float maxAxisErr = 0.0f;   // --verify: largest difference of a rotated unit axis
     size_t samples = 0;
+    size_t staticSamples = 0; // PSP: proves scoped static points were checked, not skipped
     std::string worst;
 };
 
@@ -125,7 +154,9 @@ struct AttachBakeInfo {
 inline std::vector<uint8_t> bakeAttachTable(const pipeline::M2Model& model, int standSeq,
                                            const std::vector<uint8_t>* nBlob, bool verify, AttachBakeInfo& info,
                                            const std::vector<uint32_t>* onlyIds = nullptr,
-                                           const std::vector<fmt::AttachPoint>* extra = nullptr) {
+                                           const std::vector<fmt::AttachPoint>* extra = nullptr,
+                                           const SkinVisibilityPolicy* visibility = nullptr,
+                                           const std::vector<std::set<float>>* verificationTimes = nullptr) {
     info = AttachBakeInfo{};
     std::vector<glm::mat4> stand;
     if (standSeq >= 0) poseBones(model, standSeq, 0.0f, stand);
@@ -155,7 +186,7 @@ inline std::vector<uint8_t> bakeAttachTable(const pipeline::M2Model& model, int 
 
     // --verify: the PSP's pose (psp_skeleton.hpp evaluatePose on the baked
     // keys) against upstream's (poseBones, m2_track) at each point, for every
-    // sequence of "n_" at 7 moments.
+    // sequence of "n_" at source keys and baked-frame interval quarters.
     if (verify && skinned) {
         std::vector<fmt::BoneMatrix> pose(view.h->boneCount);
         std::vector<glm::mat4> ref;
@@ -166,28 +197,34 @@ inline std::vector<uint8_t> bakeAttachTable(const pipeline::M2Model& model, int 
                 if (model.sequences[i].id == as.animId && model.sequences[i].variationIndex == as.variation)
                     m2seq = static_cast<int>(i);
             if (m2seq < 0) continue;
-            for (int k = 0; k <= 6; ++k) {
-                const float t = static_cast<float>(as.durationMs) * static_cast<float>(k) / 6.0f;
+            const auto* pins=verificationTimes&&static_cast<size_t>(s)<verificationTimes->size()?&(*verificationTimes)[s]:nullptr;
+            for (float t : skinProbeTimes(view,static_cast<uint32_t>(s),model,m2seq,true,pins,visibility)) {
                 fmt::evaluatePose(view, s, t, pose.data());
                 poseBones(model, m2seq, t, ref);
                 for (const auto& p : points) {
-                    if (p.bone == fmt::kNoAttachBone) continue;
-                    const fmt::BoneMatrix& b = pose[p.bone];
-                    const glm::mat4& u = ref[view.bones[p.bone].m2Bone];
+                    if (p.bone == fmt::kNoAttachBone && !visibility) continue;
+                    uint16_t sourceBone=0;glm::vec3 sourceOffset;
+                    if(!findAttachmentBone(model,p.id,sourceBone,sourceOffset)||sourceBone>=ref.size()) {
+                        if(visibility){info.maxErr=std::numeric_limits<float>::infinity();info.worst="unresolved source point";}
+                        continue;
+                    }
+                    const float* matrix=p.bone==fmt::kNoAttachBone?p.stand:pose[p.bone].m;
+                    const glm::mat4& u = ref[sourceBone];
                     const glm::vec3 pos(p.position[0], p.position[1], p.position[2]);
                     glm::vec3 psp;
                     for (int r = 0; r < 3; ++r)
-                        psp[r] = b.m[r] * pos.x + b.m[3 + r] * pos.y + b.m[6 + r] * pos.z + b.m[9 + r];
-                    const glm::vec3 up = glm::vec3(u * glm::vec4(pos, 1.0f));
+                        psp[r] = matrix[r] * pos.x + matrix[3 + r] * pos.y + matrix[6 + r] * pos.z + matrix[9 + r];
+                    const glm::vec3 up = glm::vec3(u * glm::vec4(sourceOffset, 1.0f));
                     const float err = glm::length(psp - up);
                     float axisErr = 0.0f;
                     for (int c = 0; c < 3; ++c)
-                        axisErr = std::max(axisErr, glm::length(glm::vec3(b.m[c * 3], b.m[c * 3 + 1], b.m[c * 3 + 2]) -
+                        axisErr = std::max(axisErr, glm::length(glm::vec3(matrix[c * 3], matrix[c * 3 + 1], matrix[c * 3 + 2]) -
                                                                 glm::vec3(u[c])));
                     ++info.samples;
+                    if(p.bone==fmt::kNoAttachBone)++info.staticSamples;
                     info.maxAxisErr = std::max(info.maxAxisErr, axisErr);
-                    if (err > info.maxErr) {
-                        info.maxErr = err;
+                    if (err > info.maxErr || (visibility&&!std::isfinite(err))) {
+                        info.maxErr = std::isfinite(err)?err:std::numeric_limits<float>::infinity();
                         info.worst = "point " + std::to_string(p.id) + " anim " + std::to_string(as.animId) + " t " +
                                      std::to_string(static_cast<int>(t)) + " ms";
                     }

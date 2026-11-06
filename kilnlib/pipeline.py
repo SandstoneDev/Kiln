@@ -89,7 +89,7 @@ class Ctx:
 
     # -- output ---------------------------------------------------------------------------------
     def _logline(self, msg):
-        if getattr(self.a, "dry_run", False):
+        if getattr(self.a, "dry_run", False) or getattr(self.a, "plan_update", False):
             return                       # a dry run writes nothing
         try:
             os.makedirs(self.logs, exist_ok=True)
@@ -151,7 +151,7 @@ class Ctx:
                     found.add(os.path.relpath(f, self.out))
         return sorted(found)
 
-    def step_key(self, step):
+    def step_key(self, step, legacy=False):
         """Definition hash: templates, parameters and the programs' own hashes. A new converter or
         baker, or a changed command line, re-runs the step."""
         progs = {}
@@ -166,7 +166,19 @@ class Ctx:
                "programs": progs, "build": self.client.build if self.client else 0,
                "map0": self.map0 if "{map0}" in json.dumps(step.run) else None,
                "mirror": "{?mirror}" in json.dumps(step.run) and bool(self.mirror)}
+        if not legacy:
+            doc["recipe"] = {"outputs": step.outputs, "prefixes": step.prefixes, "clean": step.clean,
+                             "png": step.png, "builtin": step.builtin, "mkdirs": step.mkdirs,
+                             "probes": [vars(p) for p in step.probes]}
         return hashlib.sha256(json.dumps(doc, sort_keys=True).encode()).hexdigest()
+
+    def resume_key(self, step, recorded):
+        """Accept unchanged legacy definitions until the step is actually rebuilt with recipe metadata."""
+        if recorded and "key_version" not in recorded:
+            old = self.step_key(step, legacy=True)
+            if recorded.get("key") == old:
+                return old
+        return self.step_key(step)
 
     # -- identity: what made a step's outputs (recorded in the manifest; --check / --update compare it) ----------
     def file_hash(self, path):
@@ -216,6 +228,10 @@ class Ctx:
             doc["kiln"] = KILN_VERSION
             if builtin == "profile":
                 doc["profiles"] = self.tree_hash(os.path.join(self.bakers, "Data", "expansions"), ["*/*.json"])
+            if builtin in ("xmb_art","x"):
+                doc["xmb_code"]=self.file_hash(os.path.join(os.path.dirname(__file__),"xmb.py"))
+                source=xmb.resolve_eboot(getattr(self.a,"eboot",None),getattr(self.a,"target",None),self.out)
+                doc["xmb_executable"]=xmb.executable_identity(source)
         return doc
 
     def step_identity(self, step):
@@ -288,7 +304,7 @@ def extract_map_wdts(ctx):
     return rc
 
 
-def build_steps(ctx, map_groups, locales=None):
+def build_steps(ctx, map_groups, locales=None, read_only=False):
     """Static steps + per-map steps (when the client's map table and the maps' WDTs are already extracted)
     + the copies of the localized steps for every secondary locale."""
     all_steps = S.static_steps(ctx.bakers)
@@ -297,8 +313,8 @@ def build_steps(ctx, map_groups, locales=None):
         resolve_map0(ctx)
     if map_groups and maps_ready(ctx):
         chosen, allmaps = mapdb.select_maps(ctx.x, map_groups, python=ctx.python,
-                                            dungeon_lister=os.path.join(ctx.bakers, "tools", "psp",
-                                                                        "dungeon_list.py"),
+                                            dungeon_lister=(None if read_only else os.path.join(
+                                                ctx.bakers, "tools", "psp", "dungeon_list.py")),
                                             log=lambda m: ctx.say(m))
         for g, m in chosen:
             all_steps += S.map_steps(g, m)
@@ -306,6 +322,8 @@ def build_steps(ctx, map_groups, locales=None):
         maps_note = ("per-map steps (terrain_/doodads_/minimap_<map>.pak for %s) are added after the client "
                      "tables and the maps' WDT files are extracted - they are read from the client's own map table"
                      % ", ".join(map_groups))
+    if getattr(ctx.a,"compact",False):
+        S.apply_compact(all_steps)
     copies = []
     for loc in (locales if locales is not None else ctx.client.secondary):
         for st in all_steps:
@@ -531,10 +549,12 @@ def builtin_xmb(ctx, step, log_path):
         try:
             icon0, pic1 = xmb.make_art(ctx.folder(step, "X"), out_dir, log=lambda m: log.write(m + "\n"))
             log.write("ICON0 %s, PIC1 %s\n" % (xmb.png_size(icon0), xmb.png_size(pic1)))
-            eboot = getattr(ctx.a, "eboot", None)
+            eboot = xmb.resolve_eboot(getattr(ctx.a,"eboot",None),getattr(ctx.a,"target",None),ctx.out)
             if eboot:
                 xmb.repack_eboot(eboot, os.path.join(out_dir, "EBOOT.PBP"), icon0, pic1)
                 log.write("EBOOT.PBP repacked with this art -> %s\n" % os.path.join(out_dir, "EBOOT.PBP"))
+            else:
+                ctx.say("XMB PNGs created, but no EBOOT was selected or found. Select EBOOT.PBP in Advanced settings to embed the art; copying PNGs into data/ does not display them in the XMB.")
             return 0
         except (RuntimeError, OSError, ValueError) as e:
             log.write("xmb art failed: %s\n" % e)
@@ -605,7 +625,7 @@ def run_step(ctx, man, step, idx, total, must_run=False):
     key = ctx.step_key(step)
     ident = ctx.step_identity(step)
     log = os.path.join(ctx.logs, step.name + ".log")
-    if not ctx.a.force and not must_run and man.up_to_date(step.name, key, ident):
+    if not ctx.a.force and not must_run and man.up_to_date(step.name, ctx.resume_key(step, man.step(step.name)), ident):
         ctx.say("[%3d/%d] %-34s up to date (skipped)" % (idx, total, step.name))
         ctx.event("step", name=step.name, state="skipped", index=idx, total=total, locale=ctx.step_locale(step))
         return "skipped"
@@ -651,7 +671,7 @@ def run_step(ctx, man, step, idx, total, must_run=False):
     note = "" if status == "ok" else ("rc=%d verify=%d outputs=%d" % (rc, vrc, len(outs)))
     secs = time.time() - t0
     man.record(step.name, status=status, key=key, outputs=outs if status == "ok" else [], rc=rc or vrc,
-               seconds=secs, note=note, identity=ident)
+               seconds=secs, note=note, identity=ident, key_version=1)
     warn = post_check(ctx, step, outs) if status == "ok" else ""
     if status == "ok" and quality_rc:
         q = "quality warnings (rc %d): see logs/%s.log - the output is complete" % (quality_rc, step.name)
@@ -756,6 +776,16 @@ def run_gated(ctx, man, gate, step, idx, total, must_run=False):
     """run_step unless the gate blocks the step; tells the gate about a failure."""
     why = gate.blocked(step)
     if why:
+        # The gate prevents starting a converter, not reusing a finished output.
+        # Let run_step emit its normal skipped event without changing its record.
+        if not ctx.a.force and not must_run and man.up_to_date(
+                step.name, ctx.resume_key(step, man.step(step.name)), ctx.step_identity(step)):
+            return run_step(ctx, man, step, idx, total, must_run)
+        # Keep unstarted recipes in the installation history: a later selective
+        # retry of the failed steps must not silently forget this blocked work.
+        man.record(step.name, status="blocked", key=ctx.step_key(step), outputs=[], rc=0, seconds=0,
+                   note=why, identity=ctx.step_identity(step), key_version=1)
+        man.save()
         ctx.say("[%3d/%d] %-34s BLOCKED  %s" % (idx, total, step.name, why))
         ctx.event("step", name=step.name, state="blocked", index=idx, total=total, note=why,
                   locale=ctx.step_locale(step))

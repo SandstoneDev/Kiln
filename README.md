@@ -1,12 +1,15 @@
+**Need help? Join the Sandstone_PSP Discord: [discord.gg/wV8x46ZTDu](https://discord.gg/wV8x46ZTDu)**
+
 # Kiln
 
 **English** | [Русский](README.ru.md)
 
-**Need help? Join the Sandstone_PSP Discord: [discord.gg/wV8x46ZTDu](https://discord.gg/wV8x46ZTDu)**
 
 **Kiln** is a Windows command-line tool that builds the data folder of a PSP homebrew port of an
-open-source game client. It runs on **your** PC and reads **your own** client files; nothing is
-downloaded and nothing leaves your machine.
+open-source game client. It runs on **your** PC and reads **your own** client files. Resource conversion is
+offline; game files and account data are never uploaded. Selecting an installation checks official Kiln and engine releases on GitHub. **Start** installs a missing
+engine automatically and upgrades engines older than 0.2.0 before making resources; compatible custom builds are kept.
+**Check for updates** installs other newer program releases when requested.
 
 Kiln is for a legally owned copy of the 3.3.5a (build 12340) PC client.
 
@@ -18,8 +21,8 @@ client folder you point it at and writes a `data/` folder that the port's EBOOT 
 ## Quick start (the Kiln window)
 
 You need: Windows 10 or later, your own 3.3.5a (build 12340) PC client, about 30 GB free on a local disk
-(10 GB work folder + 17 GB data) and the port's `WoWeePSP-<version>.zip` from
-[the port's Releases page](https://github.com/SandstoneDev/WoWee-psp-port). A full conversion took about 4 hours
+(10 GB work folder + 17 GB data). Download only Kiln: it obtains the engine from the official release
+when preparing a new installation. A full conversion took about 4 hours
 on a desktop PC; the PC stays usable (tick *Low priority* in *Advanced settings* to be sure).
 
 1. Download `Kiln-<version>-win64.zip` from this repository's Releases page and unpack it anywhere. No installation, no Python needed: it is inside.
@@ -32,24 +35,56 @@ on a desktop PC; the PC stays usable (tick *Low priority* in *Advanced settings*
      *Refresh* and pick it. Kiln makes the data on the PC and copies it to `PSP/GAME/WOWEEPSP/` at the end. Plug the
      PSP into its charger and set *Settings > Power Save Settings > Auto Sleep* to *Off*: a sleeping PSP drops the
      USB connection in the middle of the copy.
-   - **A folder on this PC** - Kiln writes `data\` there; you copy it to the stick yourself.
+   - **A folder on this PC** - choose your installation folder. Kiln prepares `EBOOT.PBP`, `sdbg.prx`, runtime
+     tables and `data\` together, ready to copy to the stick.
 6. **Advanced settings** (the defaults are right for a full run):
-   - **Your EBOOT.PBP of the port** - the `EBOOT.PBP` from the port's zip. Kiln writes `xmb\EBOOT.PBP`, a copy with
-     the menu icon and background made from your client's art, and puts it on the stick.
    - **Server** - pre-filled with `logon.therawow.com`, a public 3.3.5a server, so the game works at once. To play
      elsewhere, type that server's realm list address (`host` or `host:port`); clear the field to leave `wowee.cfg`
      alone. Kiln writes it into the game's `wowee.cfg`; the account is typed on the PSP.
    - Work folder, jobs, what to make, low priority, rebuild.
-7. **4 Make the data** - press **Start**. The *Steps* tab lists every step with its time, the status line the time
+7. **4 Make the data** - press **Start**. If the folder has no engine, Kiln first downloads and verifies the
+   latest stable compatible official engine release. Engines older than 0.2.0 are also upgraded before resource work.
+   A valid engine at 0.2.0 or newer is kept, including a local test build;
+   conversion can use it offline. A failed engine setup stops before conversion. The *Steps* tab lists every step with its time, the status line the time
    left. When it ends, the *Summary* tab shows the **total time**, what was made and where to copy it; the same total
    (with extraction, PNG and steps apart) is the `total time:` line near the end of `logs\kiln.log`.
-8. Copy to the stick if Kiln did not (`data\` to `ms0:/PSP/GAME/WOWEEPSP/data`, plus `EBOOT.PBP`, `sdbg.prx` and
-   `Data/` from the port's zip), set `server=` in `wowee.cfg` if you did not give it to Kiln, and follow the port's
-   README from *First start*.
+8. After a successful local run, copy everything inside the selected installation folder to
+   `ms0:/PSP/GAME/WOWEEPSP/`. `EBOOT.PBP` and `data/` must be side by side; no separate engine archive is needed.
 
-**Later:** *Update assets* re-makes only what a new Kiln or a new client changed; *Check integrity* compares the PC
-and the stick with Kiln's manifest (missing, cut or changed files); *Repair* re-makes or re-copies only those.
+The line beneath the destination shows the installed engine, available engine/Kiln releases and how many
+resource packs need updating. Selecting an existing installation checks this automatically. Use
+**Check for updates** for program updates and **Update assets** to select resource updates.
+
+**Later:** *Update assets* shows the changed or missing packs and their reasons before running. Choose just the
+packs you need; the other packs and installed map regions are kept. An individual selected pack may need a full
+rebuild. A lost work folder is recreated as needed. If the PC data copy is gone but the selected installation
+still has `data/kiln.manifest.json`, Kiln can update that installation directly using a work folder on the PC.
+*Check integrity* compares the PC and stick with Kiln's manifest; *Repair* re-makes or re-copies damaged files.
 A run that was cancelled or failed resumes with *Start* - finished steps are kept.
+
+**Program updates:** press *Check for updates* to compare Kiln and the installed engine with their latest stable
+official releases. *Download Kiln ZIP* saves the portable program; close Kiln and unpack it into a new folder.
+*Update installed engine* downloads and verifies the engine release, backs up replaced files under
+`.kiln-backups/` in the game folder, and keeps your XMB artwork, settings, login and game data. Do not disconnect
+the card until it finishes. Same-version or older engines are not installed; resource copying also preserves a
+newer installed engine. A failed installation rolls back and reports the backup path. No game resources are
+downloaded: use *Update assets* with your own client for new resource formats.
+
+Downloads check the release asset's size and SHA-256 from GitHub. Release checks run when an installation is selected or restored in the window. Initial engine setup
+uses the network before conversion; resource conversion itself stays offline. An offline or rate-limited
+check can be retried later. Compatible engines are kept; if the required 0.2.0 or newer release cannot be
+obtained, Start and Update assets stop before conversion.
+
+CLI setup: `python -m kilnlib.updates ensure-engine --target <installation> --destination <download-cache>`
+installs a missing or incompatible engine, keeping valid builds at 0.2.0 or newer. An unavailable compatible
+release stops resource work; there is no fallback to an old engine. Direct CLI model conversion rejects an
+explicit or installed EBOOT older than 0.2.0; data-only development runs without an EBOOT remain available.
+With `--target`, prepare that installation with `ensure-engine` first, even if `--out` or `--eboot` already
+has a compatible engine. The window prepares both destinations automatically.
+CLI equivalents: `--plan-update --json` previews an existing conversion without changing it;
+`--update --steps audio,spellfx` updates only those packs. `python -m kilnlib.updates --help` lists the separate
+release commands. Release archives must use the published version in their filename and in the engine PBP's
+`APP_VER`; this is what prevents an accidental downgrade.
 
 **Messages you may see:** "quality warnings (rc 4)" on characters or creatures - a few models were simplified to
 fit the PSP; the output is complete. "png skipped: ... (an empty file in the client)" - some private-server
@@ -83,7 +118,7 @@ clients ship an empty file next to the real one; it is not used.
    every file's size and SHA-256, the status and duration of every step) and writes
    `<out>/README_PERSONAL_USE.txt`.
 8. **Tells you where to copy it**: `ms0:/PSP/GAME/<APP>/data`, next to the port's `EBOOT.PBP`.
-   The EBOOT is distributed separately and contains no game data.
+   The engine is installed automatically by the window and contains no game data.
 
 A second run skips every step whose files are still present and match the manifest (and whose
 converter did not change), so an update rebuilds only what changed.
@@ -95,7 +130,7 @@ converter did not change), so an update rebuilds only what changed.
 - The converter executables in `bin/` (or any folder passed with `--tools`), with the runtime
   libraries they were built with (`--dll-dir`). See *Building the converters*.
 - Your own installed 3.3.5a (build 12340) PC client.
-- A PSP that runs homebrew, and the port's EBOOT (distributed separately).
+- A PSP that runs homebrew. The window installs the engine automatically for a new installation.
 - Free disk space: roughly 10 GB for the work folder and 10 GB for the output (estimate for a full
   run; a single step needs far less).
 
@@ -237,6 +272,17 @@ With `--json`: one `check` event per problem or extra file (`where` out/target, 
 `step`, `locale`, `detail`), `update` events (step, reason), `copy` events, and a final `done` event
 (for `--check`: `ok`, `files`, `bytes`, `problems`, `by_kind`, `extra`).
 
+### Updating an existing PSP install
+
+The updated character converter writes optional `f_<race>_<sex>` facial-hair/scalp layers. Rebuild `characters` for the correct eyebrow/beard colors. Updated sounds include the client AreaTable/SoundAmbience day/night mapping and weather WAVs. Rebuild `sounds` with the matching converter executables and copy every generated sounds part.
+Use `--steps audio` to refresh the full audio group. Copy `audio.pak` and merge the generated
+`data/music/` folder into the existing PSP data folder. To add ghost ambience, follow the local FFmpeg generation instructions in [death audio setup](bakers/docs/PSP_FISHING_CHARGE_DEATH_AUDIO.md). For model and spell updates, select
+`characters,creatures,spellfx` and copy their rebuilt packs.
+
+`--compact` (also available in Advanced settings) keeps selected maps and reduces model textures to 64 pixels, sampled animation rate to 20 Hz and ordinary sound samples to 11025 Hz. It trades visual/audio quality for size; existing terrain textures and gameplay data remain intact. Build to a separate output folder to compare. Exact savings depend on selected maps/locales; no fixed total is promised.
+
+Run `python -m kilnlib.size_report <output-or-data-folder>` for a read-only size breakdown. Only runtime data belong on the PSP; extraction work folders, logs, backups and old converted copies can remain on the PC. Optional maps/locales can be selected separately, but maps omitted from an install cannot be visited until installed.
+
 ## Languages
 
 The port shows the game in the languages of the client files it was made from. Kiln converts:
@@ -306,14 +352,16 @@ python kiln.py --out <earlier output> --remove-locale ruRU [--target ...] [--jso
 
 ## Building the converters
 
-The converters are C++ (a CMake project). `bakers/` holds their sources, the upstream sources they
-compile, the Python bakers and the licences. In an MSYS2 UCRT64 shell with gcc, cmake, ninja, glm,
-meshoptimizer and StormLib installed:
+The converters are C++ (a CMake project). `tools/export_bakers.py` copies their sources, the upstream
+sources they compile, the Python bakers and the licences into `bakers/`; then, in an MSYS2 UCRT64
+shell with gcc, cmake, ninja, glm, meshoptimizer and StormLib installed:
 
 ```
 cmake -S bakers/tools/psp/converter -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 cmake --build build
 ```
+
+Run `python packaging/export_manifest.py --check` from the checkout root to verify the exported source. To regenerate the manifest after adding or removing baker files, stage those paths and run the same command without `--check`.
 
 Copy the `psp_*.exe` files into `bin/` (or pass `--tools build`) and copy the DLLs the executables
 import next to them (the bundle's layout), or pass the MSYS2 `ucrt64/bin` folder as `--dll-dir` (Kiln
@@ -324,8 +372,9 @@ cannot start - typically a missing DLL - stops Kiln at once, before any extracti
 the missing DLLs (read from the executables' import tables). Windows' error dialogs are switched off
 for Kiln and the converters: a missing DLL is an exit code and a message, never a dialog per start.
 
-Kiln can also run against the port's repository directly (`--bakers <port repository>`; the layout
-is the same).
+`bakers/` holds the converter and baker sources exported from the port's repository by
+`tools/export_bakers.py` (audited clean before every commit). Kiln can also run against the port's
+repository directly (`--bakers <port repository>`; the layout is the same).
 
 ## GUI and Windows bundle
 
@@ -347,8 +396,11 @@ gui/bin/Debug/net8.0-windows/Kiln.exe
 Kiln.exe --dry-run --game <client> --out <output>   # the window's dry run on the console
 ```
 
-A ready-made Windows bundle (`Kiln.exe`, an embedded Python, the converters and their DLLs, and the
-licence text of every component in `THIRD_PARTY/`) is attached to each release.
+`packaging/build_bundle.ps1` builds `dist/Kiln-<version>-win64.zip` (git-ignored): `Kiln.exe`
+(self-contained), the python.org embeddable Python with Pillow and NumPy (downloaded at package time),
+`kiln.py` + `kilnlib/`, the runtime part of `bakers/`, the converters built from `bakers/` with the
+MSYS2 DLLs they import, and `THIRD_PARTY/` with the licence text of every component. It ends with
+`tools/audit.py` on the zip; `-Strict` refuses a zip that is not clean.
 
 ## Your output is for you only
 
@@ -358,6 +410,13 @@ or any archive, image or build that contains it.** The same applies to the work 
 extracted client files): delete it when you no longer need it.
 
 Kiln will never help you obtain the game, and questions about where to get it will not be answered.
+
+## Repository rules
+
+- `tools/audit.py` checks every file that can be committed (game names, non-English text, client
+  addresses, personal paths, binaries, large tables, secrets...). It runs as the `pre-push` hook
+  (`git config core.hooksPath .githooks`).
+- See `CONTRIBUTING.md` for what may and may not go into this repository.
 
 ## Credits
 

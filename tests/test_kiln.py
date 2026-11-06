@@ -145,7 +145,7 @@ class MapTest(unittest.TestCase):
     def test_map_steps(self):
         _, allmaps = mapdb.select_maps(self.tmp.name, {"continents"})
         st = S.map_steps("continents", allmaps[0])
-        self.assertEqual([s.name for s in st], ["terrain_opena", "doodads_opena", "minimap_opena"])
+        self.assertEqual([s.name for s in st], ["terrain_opena", "doodads_opena", "minimap_opena", "terrain_holes_opena"])
         g = S.map_steps("dungeons", allmaps[33])
         self.assertIn("--global-max-tris", g[1].run[0])
 
@@ -173,7 +173,8 @@ class MapTest(unittest.TestCase):
             steps, note = build_steps(ctx, ["continents", "dungeons"])
             self.assertIsNone(note)
             self.assertEqual(sorted(s.name for s in steps if s.group.startswith("maps:")),
-                             ["doodads_instb", "doodads_opena", "minimap_instb", "minimap_opena", "terrain_instb",
+                             ["doodads_instb", "doodads_opena", "minimap_instb", "minimap_opena",
+                              "terrain_holes_instb", "terrain_holes_opena", "terrain_instb",
                               "terrain_opena"])
 
     def test_bigwmo_glob_of_a_long_map_name(self):
@@ -873,7 +874,7 @@ class CheckUpdateTest(unittest.TestCase):
         out_json = os.path.join(self.out, "data", "expansions", "p1", "expansion.json")
         man = self.manifest()
         ident = man["steps"]["profile"]["identity"]
-        self.assertEqual((ident["input"]["locale"], ident["kiln"], man["hash"]), ("enUS", "0.1.0", "sha256"))
+        self.assertEqual((ident["input"]["locale"], ident["kiln"], man["hash"]), ("enUS", "0.2.0", "sha256"))
         self.assertIn("profiles", ident)
         rc, ev = self.kiln("--check")
         self.assertEqual((rc, self.kinds(ev)), (0, []))
@@ -939,6 +940,15 @@ class CheckUpdateTest(unittest.TestCase):
         with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
             kiln.parse(["--game", "g", "--out", "o", "--deep"])
 
+
+
+
+class WaterStepTest(unittest.TestCase):
+    def test_sound_step_includes_all_terrain_maps(self):
+        sound = next(s for s in S.static_steps(os.path.join(ROOT, "bakers")) if s.name == "sounds")
+        self.assertIn("--all-maps", sound.run[0])
+        self.assertNotIn("{map0}", sound.run[0])
+        self.assertIn("world\\maps\\", sound.prefixes)
 
 if __name__ == "__main__":
     unittest.main()

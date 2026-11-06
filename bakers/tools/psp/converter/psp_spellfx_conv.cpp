@@ -143,6 +143,33 @@ int verifyPak(const std::string& path) {
         std::fprintf(stderr, "verify: vis header bad\n");
         return 1;
     }
+    // Optional StateKit map must contain complete, unique records referring to baked effects.
+    if (auto a = ent.find("auras"); a != ent.end()) {
+        if (a->second.second % sizeof(sfx::SpellFxAuraVisual)) ++errors;
+        std::set<std::pair<uint32_t, uint32_t>> seen;
+        for (size_t off = 0; off + sizeof(sfx::SpellFxAuraVisual) <= a->second.second; off += sizeof(sfx::SpellFxAuraVisual)) {
+            sfx::SpellFxAuraVisual row;
+            std::memcpy(&row, d.data() + a->second.first + off, sizeof(row));
+            if (!row.visual || row.state >= vt.effectCount || (row.reserved >> 8) > 2 || !seen.insert({row.visual, (uint32_t(row.state) << 16) | row.reserved}).second) ++errors;
+        }
+    }
+    if (auto k = ent.find("kits"); k != ent.end()) {
+        if (k->second.second % sizeof(sfx::SpellFxKitMeta)) ++errors;
+        std::set<uint32_t> seen;
+        for (size_t off=0; off+sizeof(sfx::SpellFxKitMeta)<=k->second.second; off+=sizeof(sfx::SpellFxKitMeta)) {
+            sfx::SpellFxKitMeta row;
+            std::memcpy(&row,d.data()+k->second.first+off,sizeof(row));
+            if (!row.visual || !seen.insert(row.visual).second) ++errors;
+        }
+    }
+    if(auto k=ent.find("kitstarts");k!=ent.end()) {
+        if(k->second.second%sizeof(sfx::SpellFxKitStarts))++errors;
+        std::set<uint32_t> seen;
+        for(size_t off=0;off+sizeof(sfx::SpellFxKitStarts)<=k->second.second;off+=sizeof(sfx::SpellFxKitStarts)) {
+            sfx::SpellFxKitStarts row;std::memcpy(&row,d.data()+k->second.first+off,sizeof(row));
+            if(!row.visual || !seen.insert(row.visual).second)++errors;
+        }
+    }
     size_t effectBytes = 0, texBytes = 0, maxEffect = 0;
     for (uint32_t n = 0; n < vt.effectCount; ++n) {
         auto it = ent.find("e_" + std::to_string(n));
@@ -185,6 +212,7 @@ int verifyPak(const std::string& path) {
         std::memcpy(&v, d.data() + vis->second.first + sizeof(vt) + i * sizeof(v), sizeof(v));
         if (i && v.visual <= prev) ++errors;
         prev = v.visual;
+        if (v.reserved && v.reserved - 1u >= vt.effectCount) ++errors;
         for (uint16_t e : {v.precast, v.cast, v.impact})
             if (e != sfx::kFxNone && e >= vt.effectCount) ++errors;
     }
@@ -271,10 +299,20 @@ int main(int argc, char** argv) {
         std::string p = fx.getString(i, kFxPath);
         if (id && !p.empty()) effectPaths[id] = pipeline::modelPathToM2(p);
     }
+    std::unordered_map<uint32_t, std::vector<std::pair<uint32_t, uint8_t>>> kitLayers;
+    std::unordered_map<uint32_t, std::pair<uint32_t,uint32_t>> kitMeta;
+    std::unordered_map<uint32_t, uint32_t> kitStarts;
     std::unordered_map<uint32_t, uint32_t> kitEffect;
     for (uint32_t i = 0; i < kit.getRecordCount(); ++i) {
         const uint32_t kid = kit.getUInt32(i, 0);
         if (!kid) continue;
+        if (kit.getFieldCount()>15) {kitMeta[kid]={kit.getUInt32(i,2),kit.getUInt32(i,15)};kitStarts[kid]=kit.getUInt32(i,1);}
+        // 3.3.5a kit slots: head/chest/base/hands/breath/weapons/specials.
+        static constexpr uint8_t attaches[] = {11,5,0,2,1,11,2,1,0,0,0};
+        for (uint32_t field = 3; field <= 13 && field < kit.getFieldCount(); ++field) {
+            const uint32_t effect = kit.getUInt32(i, field);
+            if (effect && effectPaths.count(effect)) kitLayers[kid].push_back({effect, attaches[field-3]});
+        }
         uint32_t eff = 0;
         for (uint32_t f : kKitFields)
             if (!eff && f < kit.getFieldCount()) eff = kit.getUInt32(i, f);
@@ -298,7 +336,7 @@ int main(int argc, char** argv) {
     std::map<std::string, int> failures;
     int nextEffect = 0;
     auto effectFor = [&](const std::string& path) -> uint16_t {
-        if (path.empty()) return sfx::kFxNone;
+        if (path.empty() || nextEffect >= 0xFFFE) return sfx::kFxNone;
         const std::string key = lower(path);
         auto it = effectOf.find(key);
         if (it != effectOf.end()) return it->second < 0 ? sfx::kFxNone : static_cast<uint16_t>(it->second);
@@ -318,30 +356,68 @@ int main(int argc, char** argv) {
 
     std::unordered_map<uint32_t, uint32_t> svRow;
     for (uint32_t i = 0; i < sv.getRecordCount(); ++i) svRow[sv.getUInt32(i, 0)] = i;
+    std::vector<sfx::SpellFxKitMeta> kitRows;
+    std::vector<sfx::SpellFxKitStarts> startRows;
     std::vector<sfx::SpellFxVisual> rows;
+    std::vector<sfx::SpellFxAuraVisual> auraRows;
     size_t roles[3] = {0, 0, 0};
     for (uint32_t v : visuals) {
         auto r = svRow.find(v);
         if (r == svRow.end()) continue;
         const uint32_t i = r->second;
         const uint32_t fc = sv.getFieldCount();
+        auto km = [&](uint32_t field) -> std::pair<uint32_t,uint32_t> {
+            if (field>=fc) return {0xFFFFFFFFu,0};
+            const auto found=kitMeta.find(sv.getUInt32(i,field));
+            return found==kitMeta.end() ? std::make_pair(0xFFFFFFFFu,0u) : found->second;
+        };
+        const auto preMeta=km(1), castMeta=km(2), impactMeta=km(3), channelMeta=km(6);
+        auto start=[&](uint32_t field) {const auto it=kitStarts.find(sv.getUInt32(i,field));return it==kitStarts.end()?0xFFFFFFFFu:it->second;};
+        startRows.push_back({v,start(1),start(2),start(6)});
+        kitRows.push_back({v,preMeta.first,castMeta.first,channelMeta.first,
+                           preMeta.second,castMeta.second,impactMeta.second,channelMeta.second});
         std::string pre = kSvPrecast < fc ? kitPath(sv.getUInt32(i, kSvPrecast)) : std::string{};
         std::string cast = kSvCast < fc ? kitPath(sv.getUInt32(i, kSvCast)) : std::string{};
-        if (cast.empty() && kSvMissile < fc) cast = missilePath(sv.getUInt32(i, kSvMissile));
+        // A missile model is not a caster decoration. Missing kits stay empty.
         std::string imp = kSvImpact < fc ? kitPath(sv.getUInt32(i, kSvImpact)) : std::string{};
-        if (imp.empty() && kSvMissile < fc) imp = missilePath(sv.getUInt32(i, kSvMissile));
+        // Do not turn a missing impact kit into a stationary missile/orb.
+        // 3.3.5a SpellVisual.StateKit is field 4 (separate from the application ImpactKit).
+        bool hasAura = false;
+        for (uint16_t role = 0; role < 3; ++role) {
+            const uint32_t field = role == 0 ? 4 : role == 1 ? 3 : 5;
+            if (field >= fc) continue;
+            const auto layers = kitLayers.find(sv.getUInt32(i, field));
+            if (layers == kitLayers.end()) continue;
+            std::set<std::pair<uint16_t, uint16_t>> seen;
+            for (const auto& layer : layers->second) {
+                const uint16_t effect = effectFor(missilePath(layer.first));
+                const uint16_t flags = static_cast<uint16_t>((role << 8) | (layer.second + 1));
+                if (effect != sfx::kFxNone && seen.insert({effect, flags}).second) {
+                    auraRows.push_back({v, effect, flags}); hasAura = true;
+                }
+            }
+        }
+        const uint16_t missile = effectFor(kSvMissile < fc && sv.getUInt32(i,7) ? missilePath(sv.getUInt32(i, kSvMissile)) : std::string{});
         sfx::SpellFxVisual row{};
+        row.reserved = missile == sfx::kFxNone ? 0 : static_cast<uint16_t>(missile + 1);
         row.visual = v;
         row.precast = effectFor(pre);
         row.cast = effectFor(cast);
         row.impact = effectFor(imp);
-        if (row.precast == sfx::kFxNone && row.cast == sfx::kFxNone && row.impact == sfx::kFxNone) continue;
+        if (row.precast == sfx::kFxNone && row.cast == sfx::kFxNone && row.impact == sfx::kFxNone && !row.reserved && !hasAura) continue;
         roles[0] += row.precast != sfx::kFxNone;
         roles[1] += row.cast != sfx::kFxNone;
         roles[2] += row.impact != sfx::kFxNone;
         rows.push_back(row);
     }
 
+    // The level-up model is not linked from a Spell.dbc row; always bake it explicitly.
+    const uint16_t levelUp = effectFor("Spells/LevelUp/LevelUp.m2");
+    if (levelUp != sfx::kFxNone) {
+        sfx::SpellFxVisual row{};
+        row.visual = sfx::kFxLevelUpVisual; row.precast = row.cast = sfx::kFxNone; row.impact = levelUp;
+        rows.push_back(row);
+    }
     std::vector<uint8_t> vis;
     sfx::SpellFxVisualTable vt{};
     std::memcpy(vt.magic, "WSFV", 4);
@@ -354,7 +430,19 @@ int main(int argc, char** argv) {
     vis.insert(vis.end(), reinterpret_cast<const uint8_t*>(rows.data()),
                reinterpret_cast<const uint8_t*>(rows.data() + rows.size()));
     items.insert(items.begin(), PakItem{"vis", 3, std::move(vis)});
+    if (!auraRows.empty()) {
+        const auto* begin = reinterpret_cast<const uint8_t*>(auraRows.data());
+        items.push_back({"auras", 3, std::vector<uint8_t>(begin, begin + auraRows.size() * sizeof(sfx::SpellFxAuraVisual))});
+    }
 
+    if (!kitRows.empty()) {
+        const auto* bytes=reinterpret_cast<const uint8_t*>(kitRows.data());
+        items.push_back({"kits",3,std::vector<uint8_t>(bytes,bytes+kitRows.size()*sizeof(sfx::SpellFxKitMeta))});
+    }
+    if(!startRows.empty()) {
+        const auto* bytes=reinterpret_cast<const uint8_t*>(startRows.data());
+        items.push_back({"kitstarts",3,std::vector<uint8_t>(bytes,bytes+startRows.size()*sizeof(sfx::SpellFxKitStarts))});
+    }
     size_t effectBytes = 0, maxBytes = 0, verts = 0, tris = 0, emit = 0, srcEmit = 0, dominant = 0, ribbons = 0;
     float worstKey = 0.0f;
     std::string worstKeyPath;

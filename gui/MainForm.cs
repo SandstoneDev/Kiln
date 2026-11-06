@@ -6,10 +6,11 @@
 // and, while kiln.py has no --target, copies the data to the memory stick itself (CardSync).
 using System.Diagnostics;
 using System.Text.Json;
+using System.Security.Cryptography;
 
 namespace Kiln;
 
-public sealed class MainForm : Form
+public sealed partial class MainForm : Form
 {
     // ---- look ----
     private static readonly float TestScale = float.TryParse(Environment.GetEnvironmentVariable("KILN_FONT_SCALE"),
@@ -52,6 +53,7 @@ public sealed class MainForm : Form
     // ---- (4) actions ----
     private readonly Button _start = new() { Text = "Start", AutoSize = true };
     private readonly Button _update = new() { Text = "Update assets", AutoSize = true };
+    private readonly Button _checkReleases = new() { Text = "Check for updates", AutoSize = true };
     private readonly Button _checkInt = new() { Text = "Check integrity", AutoSize = true };
     private readonly Button _repair = new() { Text = "Repair", AutoSize = true, Enabled = false };
     private readonly Button _cancel = new() { Text = "Cancel", AutoSize = true, Enabled = false };
@@ -67,6 +69,7 @@ public sealed class MainForm : Form
     private readonly FlowLayoutPanel _groups = new() { AutoSize = true, WrapContents = true, Dock = DockStyle.Fill, Margin = new Padding(0) };
     private readonly NumericUpDown _jobs = new() { Minimum = 1, Maximum = 64, AutoSize = true };
     private readonly CheckBox _lowPrio = new() { Text = "Low priority (the PC stays responsive)", AutoSize = true };
+    private readonly CheckBox _compact = new() { Text = "Smaller data (64px model textures / 20 Hz animations)", AutoSize = true };
     private readonly CheckBox _force = new() { Text = "Rebuild finished steps", AutoSize = true };
     private readonly TextBox _eboot = new() { Dock = DockStyle.Fill };
     private readonly TextBox _server = new() { Dock = DockStyle.Fill, PlaceholderText = "host or host:port of a 3.3.5a server you may play on" };
@@ -270,6 +273,7 @@ public sealed class MainForm : Form
         _destInfo.Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top;
         _destInfo.Margin = new Padding(Px(1), Px(1), 0, 0);
         Add(_destInfo);
+        Add(_installationInfo);
         _existInfo.AutoSize = true;
         _existInfo.Font = _bold;
         _existInfo.Margin = new Padding(Px(1), Px(6), Px(6), 0);
@@ -308,8 +312,8 @@ public sealed class MainForm : Form
         P(h4);
         _start.Font = _big;
         Std(_start, 100).MinimumSize = new Size(Px(100), Px(27));
-        foreach (var b in new[] { _update, _checkInt, _repair, _cancel }) Std(b, 85).MinimumSize = new Size(Px(85), Px(27));
-        P(Flow(_start, _update, _checkInt, _repair, _cancel));
+        foreach (var b in new[] { _update, _checkInt, _repair, _checkReleases, _cancel }) Std(b, 85).MinimumSize = new Size(Px(85), Px(27));
+        P(Flow(_start, _update, _checkInt, _repair, _checkReleases, _cancel));
         _overall.Height = Px(14);
         _overall.Margin = new Padding(Px(3), Px(3), Px(3), Px(1));
         P(_overall);
@@ -337,7 +341,7 @@ public sealed class MainForm : Form
         {
             AutoSize = true, Anchor = AnchorStyles.Left | AnchorStyles.Right, ForeColor = HelpColor,
             Margin = new Padding(Px(9), Px(3), Px(9), Px(4)),
-            Text = "Personal use only: the data comes from your own copy of the game - do not share, upload or sell it. Kiln sends nothing anywhere.",
+            Text = "Personal use only: game data stays local - do not share, upload or sell it. Release checks run only when requested.",
         };
         var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 2 };
         root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
@@ -385,12 +389,10 @@ public sealed class MainForm : Form
         A(_groups);
 
         A(L("Speed"));
-        A(Flow(Inline("Jobs:"), _jobs, Inline($"(default {Hardware.DefaultJobs()}: one per CPU core, one thread left free)", help: true), _lowPrio, _force));
+        A(Flow(Inline("Jobs:"), _jobs, Inline($"(default {Hardware.DefaultJobs()}: one per CPU core, one thread left free)", help: true), _lowPrio, _force, _compact));
         _tips.SetToolTip(_jobs, "Steps that run at the same time (and workers for the converters that take a count).");
 
-        A(L("Your EBOOT.PBP of the port (optional: Kiln makes a copy with menu art from your client)"));
-        A(Row(Fill(_eboot), Auto(B("Browse...", (_, _) => PickEboot()))));
-        _tips.SetToolTip(_eboot, "Your copy of the port's EBOOT.PBP. Kiln writes a copy with a menu icon and background made from your client's art and puts it on the memory stick.");
+        A(L("Start installs a missing engine from the official release. Existing builds are kept; Check for updates installs newer releases."));
 
         A(L("Server (written to wowee.cfg of the game folder as server=; change it to play elsewhere, clear it to skip)"));
         A(_server);
@@ -465,7 +467,16 @@ public sealed class MainForm : Form
         _removeLang.Click += async (_, _) => await RemoveLanguageAsync();
         _advToggle.LinkClicked += (_, _) => SetAdvanced(!_adv.Visible);
         _start.Click += async (_, _) => await MakeAsync(KilnMode.Run);
-        _update.Click += async (_, _) => await MakeAsync(KilnMode.Update);
+        _update.Click += async (_, _) => await PlanAssetUpdateAsync();
+        _checkReleases.Click += (_, _) =>
+        {
+            if (_busy || _inst is null) return;
+            using var updates = new ReleaseUpdates(_inst, StickGameDir() ?? PcOut(),
+                new[] { _game.Text.Trim() }.Concat(ExtraDirs()).ToList(), Path.Combine(WorkDir(), "releases"));
+            updates.ShowDialog(this);
+            _installationCheckKey = "";
+            _ = RefreshInstallationStatusAsync();
+        };
         _checkInt.Click += async (_, _) => await CheckIntegrityAsync();
         _repair.Click += async (_, _) => await RepairAsync();
         _cancel.Click += (_, _) => CancelRun();
@@ -491,6 +502,7 @@ public sealed class MainForm : Form
         bool first = s.Jobs <= 0;
         _jobs.Value = Math.Clamp(first ? Hardware.DefaultJobs() : s.Jobs, 1, 64);
         _app.Text = string.IsNullOrWhiteSpace(s.App) ? "WOWEEPSP" : s.App;
+        _compact.Checked = s.Compact;
         _lowPrio.Checked = first || s.LowPriority;                      // first start: on
         _force.Checked = false;
         _eboot.Text = s.Eboot;
@@ -524,6 +536,7 @@ public sealed class MainForm : Form
         s.Eboot = _eboot.Text.Trim();
         s.Server = _server.Text.Trim();
         s.Jobs = (int)_jobs.Value;
+        s.Compact = _compact.Checked;
         s.LowPriority = _lowPrio.Checked;
         s.Advanced = _adv.Visible;
         s.Groups = _groups.Controls.OfType<CheckBox>().Where(c => c.Checked).Select(c => ((StepGroup)c.Tag!).Id).ToList();
@@ -734,9 +747,14 @@ public sealed class MainForm : Form
         var (_, low) = SpaceText();
         if (stick is not null)
         {
-            parts.Add($"Data -> {StickData()} (made in {PcOut()} first).");
-            parts.Add($"Free: stick {Disk.Gb(stick.Free)}{(pcFree.Length > 0 ? ", " + pcFree : "")} (needs ~10 GB / ~20 GB).");
-            if (stick.Free < Disk.DataBytes) color = Warn;
+            bool pcReference = AssetUpdateBackend.HasManifest(PcOut());
+            bool cardReference = AssetUpdateBackend.HasManifest(StickGameDir());
+            parts.Add(!pcReference && cardReference
+                ? $"Existing data -> {StickData()}. Update assets uses this installation; temporary files -> {WorkDir()}."
+                : $"Data -> {StickData()} (made in {PcOut()} first).");
+            parts.Add($"Free: stick {Disk.Gb(stick.Free)}{(pcFree.Length > 0 ? ", " + pcFree : "")}" +
+                (pcReference || cardReference ? " (update space depends on the selected packs)." : " (needs ~10 GB / ~20 GB)."));
+            if (!pcReference && !cardReference && stick.Free < Disk.DataBytes) color = Warn;
             if (!string.Equals(stick.Format, "FAT32", StringComparison.OrdinalIgnoreCase) && !string.Equals(stick.Format, "exFAT", StringComparison.OrdinalIgnoreCase))
             { parts.Add($"The stick is {stick.Format}; the PSP reads FAT32."); color = Warn; }
         }
@@ -804,7 +822,8 @@ public sealed class MainForm : Form
             AddLocales = ExtraDirs(),
             Jobs = (int)_jobs.Value,
             Force = _force.Checked,
-            Eboot = File.Exists(_eboot.Text.Trim()) ? _eboot.Text.Trim() : null,
+            Compact = _compact.Checked,
+            Eboot = null, // Start prepares the selected installation; no separately selected download is needed
             Server = _server.Text.Trim().Length > 0 ? _server.Text.Trim() : null,
             App = AppName(),
             Steps = KilnCli.StepTokens(_groups.Controls.OfType<CheckBox>().Where(c => c.Checked).Select(c => (StepGroup)c.Tag!)),
@@ -828,6 +847,7 @@ public sealed class MainForm : Form
         if (_inst is null || !_ready || _busy) return;
         _checkCts?.Cancel();
         var cts = _checkCts = new CancellationTokenSource();
+        _ = RefreshInstallationStatusAsync();
         string g = _game.Text.Trim();
         if (g.Length == 0 || !Directory.Exists(g) || !ClientScan.HasData(g)) { UpdateButtons(); return; }
         var args = KilnCli.Args(Options(KilnMode.DryRun), _inst, _caps);
@@ -860,7 +880,7 @@ public sealed class MainForm : Form
         else if (plan is { } p)
         {
             ShowPlan(p, running: false);
-            if (keepStatus) { UpdateButtons(); return; }
+            if (keepStatus) { UpdateButtons(); _ = RefreshInstallationStatusAsync(); return; }
             int todo = _steps.Rows.Count(r => r.State == RowState.Planned);
             int done = _steps.Rows.Count(r => r.State == RowState.UpToDate);
             int missing = _steps.Rows.Count(r => r.State == RowState.Missing);
@@ -870,6 +890,7 @@ public sealed class MainForm : Form
             else SetStatus($"Ready: press Start. {todo} step(s) to make{(done > 0 ? $", {done} already up to date" : "")}.{maps}", null);
         }
         UpdateButtons();
+        _ = RefreshInstallationStatusAsync();
     }
 
     private void ApplyClient(JsonElement c)
@@ -959,26 +980,33 @@ public sealed class MainForm : Form
         }
         SaveSettings();
         BeginBusy(mode == KilnMode.Update ? "update" : "run");
-        int rc = await RunKilnAsync(opt);
+        int rc;
         bool copied = true;
         CardSync.CopyResult? copy = null;
-        if (!_cancelled && StickChoice() is not null)
+        try
         {
-            if (!_caps.Has("--target")) { if (rc == 0) (copied, copy) = await CopyToStickAsync(stickRepair); }
-            else await CopyEbootAsync();                          // kiln.py copies data/; the EBOOT with menu art is ours
+            rc = await RunKilnAsync(opt);
+            if (!_cancelled && StickChoice() is not null)
+            {
+                if (!_caps.Has("--target")) { if (rc == 0) (copied, copy) = await CopyToStickAsync(stickRepair); }
+                // A backend with --target owns the complete runtime copy and version guard.
+            }
         }
-        EndBusy();
+        finally { EndBusy(); }
         ShowRunSummary(mode, rc, copy, copied);
         await RunCheckAsync(keepStatus: true);
     }
 
     private async Task<int> RunKilnAsync(RunOptions opt)
     {
+        // Every resource-producing caller (Start, Update assets and Repair)
+        // must prepare a compatible engine before a converter can run.
+        bool makes = opt.Mode is KilnMode.Run or KilnMode.Update or KilnMode.Repair;
+        if (makes && !await PrepareEngineAsync(opt)) return 1;
         var args = KilnCli.Args(opt, _inst!, _caps);
         Log("");
         Log($"== {opt.Mode.ToString().ToLowerInvariant()} {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
         Log("$ " + KilnCli.Show(_inst!, args));
-        bool makes = opt.Mode is KilnMode.Run or KilnMode.Update or KilnMode.Repair;
         if (makes)
         {
             foreach (var r in _steps.Rows.ToList())
@@ -1030,8 +1058,7 @@ public sealed class MainForm : Form
                 // the EBOOT with the menu art from this client, when Kiln made one
                 string eb = Path.Combine(pcOut, "xmb", "EBOOT.PBP");
                 string ebDst = Path.Combine(gameDir, "EBOOT.PBP");
-                if (File.Exists(eb) && (!File.Exists(ebDst) || new FileInfo(ebDst).Length != new FileInfo(eb).Length ||
-                                        File.GetLastWriteTimeUtc(ebDst) < File.GetLastWriteTimeUtc(eb).AddSeconds(-2)))
+                if (File.Exists(eb) && !SameEboot(eb,ebDst))
                 {
                     File.Copy(eb, ebDst, true);
                     File.SetLastWriteTimeUtc(ebDst, File.GetLastWriteTimeUtc(eb));
@@ -1093,6 +1120,14 @@ public sealed class MainForm : Form
 
     /// The EBOOT.PBP with menu art from this client (xmb/ of the output), copied next to data/ on the stick
     /// when it is new or changed. kiln.py's --target copies data/ only.
+    private static bool SameEboot(string source,string target)
+    {
+        if (!File.Exists(target) || new FileInfo(source).Length != new FileInfo(target).Length) return false;
+        using var a=File.OpenRead(source);
+        using var b=File.OpenRead(target);
+        return SHA256.HashData(a).AsSpan().SequenceEqual(SHA256.HashData(b));
+    }
+
     private async Task CopyEbootAsync()
     {
         string eb = Path.Combine(PcOut(), "xmb", "EBOOT.PBP");
@@ -1101,8 +1136,7 @@ public sealed class MainForm : Form
         string dst = Path.Combine(dir, "EBOOT.PBP");
         try
         {
-            bool need = !File.Exists(dst) || new FileInfo(dst).Length != new FileInfo(eb).Length ||
-                        File.GetLastWriteTimeUtc(dst) < File.GetLastWriteTimeUtc(eb).AddSeconds(-2);
+            bool need = !SameEboot(eb,dst);
             if (!need) return;
             await Task.Run(() => { Directory.CreateDirectory(dir); File.Copy(eb, dst, true); File.SetLastWriteTimeUtc(dst, File.GetLastWriteTimeUtc(eb)); });
             Log($"copied EBOOT.PBP with your menu art -> {dst}");
@@ -1251,6 +1285,8 @@ public sealed class MainForm : Form
         _busy = true;
         _cancelled = false;
         _checkCts?.Cancel();
+        _installationCheckCts?.Cancel();
+        _installationCheckKey = "";
         _runCts = new CancellationTokenSource();
         _runStart = DateTime.UtcNow;
         _overall.Value = 0;
@@ -1274,7 +1310,7 @@ public sealed class MainForm : Form
         if (!_busy || _runCts is null) return;
         _cancelled = true;
         _cancel.Enabled = false;
-        SetStatus("Cancelling (stopping kiln.py and the converter it runs)...", null);
+        SetStatus(_preparingEngine ? "Cancelling engine preparation safely..." : "Cancelling (stopping kiln.py and the converter it runs)...", null);
         Log("== cancel requested");
         _runCts.Cancel();
     }
@@ -1312,9 +1348,9 @@ public sealed class MainForm : Form
             else if (_lastDone?.Obj("copy") is { } cp)
                 lines.Add($"Memory stick: {StickData()} ({cp.Num("copied") ?? 0} file(s) copied, {cp.Num("kept") ?? 0} already there" +
                           ((cp.Num("failed") ?? 0) > 0 ? $", {cp.Num("failed")} failed" : "") + ").");
-            lines.Add("Next: put the port's EBOOT.PBP into " + StickGameDir() + " if it is not there yet, and start the game on the PSP.");
+            lines.Add("Installation on the memory stick: " + StickGameDir() + ". After a successful run, start the game on the PSP.");
         }
-        else lines.Add($"Next: copy {DataDir()} to the memory stick as PSP/GAME/{AppName()}/data, next to the port's EBOOT.PBP.");
+        else lines.Add($"After a successful run, copy everything inside {PcOut()} to PSP/GAME/{AppName()}/ on the memory stick. EBOOT.PBP and data/ belong side by side.");
         string eb = Path.Combine(PcOut(), "xmb", "EBOOT.PBP");
         if (File.Exists(eb)) lines.Add($"Your EBOOT with menu art from your client: {eb}" + (StickChoice() is not null ? " (also copied to the stick)." : "."));
         if (FindExisting() is { } ex && ex.Extra.Count > 0)
@@ -1525,15 +1561,17 @@ public sealed class MainForm : Form
     private void UpdateButtons()
     {
         bool idle = !_busy && _inst is not null && _ready;
-        foreach (Control c in new Control[] { _game, _folder, _folderBrowse, _stick, _stickRefresh, _toStick, _toFolder, _work, _pcOut, _eboot, _server, _app, _groups, _jobs, _force, _lowPrio })
+        foreach (Control c in new Control[] { _game, _folder, _folderBrowse, _stick, _stickRefresh, _toStick, _toFolder, _work, _pcOut, _eboot, _server, _app, _groups, _jobs, _force, _lowPrio, _compact })
             c.Enabled = idle;
+        _compact.Enabled = idle && _caps.Has("--compact");
         bool locales = _caps.Has("--add-locale");
         _extras.Enabled = _addExtra.Enabled = _removeExtra.Enabled = _defaultLocale.Enabled = idle && locales;
         if (!_caps.Has("--eboot")) _eboot.Enabled = false;
         if (idle && _stick.SelectedItem is not Hardware.Stick) _toStick.Enabled = false;
         bool hasData = File.Exists(Path.Combine(DataDir(), "kiln.manifest.json"));
         _start.Enabled = idle && _clientOk;
-        _update.Enabled = idle && _clientOk && hasData;
+        _update.Enabled = idle && _clientOk && (hasData || AssetUpdateBackend.HasManifest(StickGameDir()));
+        _checkReleases.Enabled = idle && _inst is not null && File.Exists(Path.Combine(_inst.Root, "kilnlib", "updates.py"));
         _checkInt.Enabled = idle && _clientOk && hasData;
         if (!idle) _repair.Enabled = false;
         _cancel.Enabled = _busy;
@@ -1609,6 +1647,12 @@ public sealed class MainForm : Form
 
     private void OnClosing(object? sender, FormClosingEventArgs e)
     {
+        if (_preparingEngine)
+        {
+            e.Cancel = true;
+            CancelRun();
+            return; // wait for the download cleanup or installation rollback before closing
+        }
         if (_busy)
         {
             if (MessageBox.Show(this, "Kiln is working. Stop it and close? (Start resumes later: finished steps are kept.)", "Kiln",
@@ -1621,6 +1665,7 @@ public sealed class MainForm : Form
             _runCts?.Cancel();
         }
         _checkCts?.Cancel();
+        _installationCheckCts?.Cancel();
         if (_ready) SaveSettings();
         _eta.Save();
     }

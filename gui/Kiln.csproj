@@ -18,7 +18,7 @@
     <RootNamespace>Kiln</RootNamespace>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <ApplicationVisualStyles>true</ApplicationVisualStyles>
-    <Version>0.1.0</Version>
+    <Version>0.2.0</Version>
     <Product>Kiln</Product>
     <Company>SandstoneDev</Company>
     <Copyright>Copyright (c) 2026 SandstoneDev</Copyright>
