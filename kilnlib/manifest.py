@@ -11,6 +11,7 @@ identity: --check reports it as unknown and --update re-makes it.
 from __future__ import annotations
 
 import hashlib
+import copy
 import json
 import os
 import re
@@ -106,6 +107,7 @@ class Manifest:
     def record(self, name, *, status, key, outputs, rc, seconds, note="", identity=None, key_version=None):
         files = [self.file_record(r) for r in sorted(outputs)]
         with self.lock:
+            previous = (self.doc["steps"].get(name) or {}).get("previous")
             self.doc["steps"][name] = {
                 "status": status, "key": key, "rc": rc, "seconds": round(seconds, 1),
                 "finished": time.strftime("%Y-%m-%d %H:%M:%S"), "outputs": files, "note": note,
@@ -114,6 +116,20 @@ class Manifest:
                 self.doc["steps"][name]["identity"] = identity
             if key_version is not None:
                 self.doc["steps"][name]["key_version"] = key_version
+            if status != "ok" and previous:
+                self.doc["steps"][name]["previous"] = previous
+
+    def begin(self, name, *, key, identity, state="pending"):
+        """Persist work before execution without deleting the last successful metadata/files."""
+        with self.lock:
+            old = self.doc["steps"].get(name)
+            rec = copy.deepcopy(old) if old else {"key": key, "identity": identity, "outputs": [],
+                                                  "rc": 0, "seconds": 0, "key_version": 1}
+            if old and old.get("status") == "ok":
+                rec["previous"] = copy.deepcopy(old)
+            rec.update(status=state, note="interrupted or not started last time", run_started=time.strftime("%Y-%m-%d %H:%M:%S"),
+                       pending_key=key, pending_identity=identity)
+            self.doc["steps"][name] = rec
 
     def mark(self, name, **fields):
         with self.lock:

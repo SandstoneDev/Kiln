@@ -13,12 +13,14 @@
 #include "model_bake.hpp"
 #include "skin_quality_policy.hpp"
 #include "skin_visibility_fast.hpp"
+#include "bake_progress.hpp"
 #include <atomic>
 #include <thread>
 
 #include <glm/gtc/quaternion.hpp>
 
 #include <array>
+#include <limits>
 #include <numeric>
 #include <set>
 
@@ -901,6 +903,63 @@ inline glm::vec3 geSkin(const fmt::SkinView& view, const std::vector<fmt::BoneMa
     return out;
 }
 
+// PSP: decode immutable vertex data once and fold each GE palette slot once
+// per pose. Preserve geSkin's operation order, including virtual blends and
+// weight normalization; this changes work, not the packed-path oracle.
+class SkinOraclePlan {
+    struct Vertex {glm::vec3 position;std::array<float,fmt::kSkinMaxPalette> weights{};uint32_t batch;};
+    using Matrices=std::array<std::array<float,12>,fmt::kSkinMaxPalette>;
+    const fmt::SkinView& view_;
+    std::vector<Vertex> vertices_;
+    std::vector<Matrices> matrices_;
+    std::vector<uint8_t> used_;
+public:
+    explicit SkinOraclePlan(const fmt::SkinView& view):view_(view),matrices_(view.h->subBatchCount),used_(view.h->subBatchCount) {
+        for(uint32_t b=0;b<view.h->batchCount;++b)for(uint32_t k=0;k<view.batches[b].indexCount;++k) {
+            const auto index=view.batches[b].indexStart+k;const auto& sb=view.subBatches[index];used_[index]=1;
+            const bool fp=(view.h->flags&fmt::kSkinFloatPosition)!=0;
+            const int stride=fmt::skinVertexStride(sb.weights,fp,sb.reserved);
+            for(uint32_t i=0;i<sb.vertexCount;++i) {
+                const auto* data=view.vertices(sb)+i*stride;Vertex v{};v.batch=index;
+                const auto offset=fmt::skinPositionOffset(sb.weights,fp,sb.reserved);
+                if(fp) {float p[3];std::memcpy(p,data+offset,sizeof(p));v.position={p[0],p[1],p[2]};}
+                else {int16_t p[3];std::memcpy(p,data+offset,sizeof(p));v.position={p[0]/32768.0f,p[1]/32768.0f,p[2]/32768.0f};}
+                for(unsigned j=0;j<sb.weights;++j) {
+                    uint16_t weight=data[j];if(sb.reserved&fmt::kSkinWeights16)std::memcpy(&weight,data+j*2,2);
+                    v.weights[j]=weight/((sb.reserved&fmt::kSkinWeights16)?32768.0f:kSkinWeightOne);
+                }
+                vertices_.push_back(v);
+            }
+        }
+    }
+    void prepare(const std::vector<fmt::BoneMatrix>& pose) {
+        for(uint32_t i=0;i<view_.h->subBatchCount;++i)if(used_[i]) {
+            const auto& sb=view_.subBatches[i];
+            for(unsigned j=0;j<sb.weights;++j) {
+                const auto* blend=view_.paletteBlend(sb,j);
+                if(blend) {fmt::BoneMatrix matrix;fmt::skinBlendPaletteMatrix(*blend,pose[0].m,12,matrix.m,12);
+                    fmt::geBoneMatrix(matrix,*view_.h,matrices_[i][j].data());}
+                else fmt::geBoneMatrix(pose[sb.palette[j]],*view_.h,matrices_[i][j].data());
+            }
+        }
+    }
+    glm::vec3 skin(size_t i) const {
+        const auto& v=vertices_[i];const auto& sb=view_.subBatches[v.batch];glm::vec3 out(0.0f);
+        for(unsigned j=0;j<sb.weights;++j) {
+            const float w=v.weights[j];if(w==0.0f)continue;const auto& g=matrices_[v.batch][j];
+            for(int r=0;r<3;++r)out[r]+=w*(g[r]*v.position.x+g[3+r]*v.position.y+g[6+r]*v.position.z+g[9+r]);
+        }
+        return out;
+    }
+};
+
+inline thread_local const char* skinOracleOperation="oracle";
+struct SkinOracleOperationScope {
+    const char* previous;
+    explicit SkinOracleOperationScope(const char* name):previous(skinOracleOperation){skinOracleOperation=name;}
+    ~SkinOracleOperationScope(){skinOracleOperation=previous;}
+};
+
 // PSP: measure the actual packed path, so weight/position quantization cannot
 // be mistaken for motion that would benefit from more animation keys.
 inline std::set<float> skinProbeTimes(const fmt::SkinView& view,uint32_t sequence,
@@ -1068,34 +1127,41 @@ inline float skinSequenceError(const fmt::SkinView& view, uint32_t sequence,
                                const std::set<float>* pinnedTimes=nullptr,std::set<float>* badTimes=nullptr,
                                const SkinVisibilityPolicy* visibility=nullptr,
                                float* rawMaximum=nullptr,size_t* clippedSamples=nullptr) {
+    const std::string stage=std::string(skinOracleOperation)+" anim "+std::to_string(view.sequences[sequence].animId);
+    bakeProgress(stage.c_str());
     if(visibility)return skinScopedSequenceError(view,sequence,model,m2Sequence,bind,emittedSource,
         includeAuthored,badBones,vertexSamples,probeCount,sumSq,worst,pinnedTimes,badTimes,*visibility,
         rawMaximum,clippedSamples);
     std::vector<fmt::BoneMatrix> pose(view.h->boneCount);std::vector<glm::mat4> reference;
+    SkinOraclePlan plan(view);std::vector<glm::vec3> source(bind.size());std::vector<uint8_t> ready(bind.size());
+    std::vector<uint8_t> affected;if(badBones)affected.resize(model.bones.size());
     const auto times=skinProbeTimes(view,sequence,model,m2Sequence,includeAuthored,pinnedTimes);
     if(vertexSamples)*vertexSamples=0;
     if(probeCount)*probeCount=times.size();
     if(sumSq)*sumSq=0;
     float error=0;
+    size_t timeIndex=0;bakeProgress(stage.c_str(),0,times.size());
     for(float time:times) {
+        if((timeIndex++&63u)==0)bakeProgress(stage.c_str(),timeIndex-1,times.size());
+        bool badTime=false;
         fmt::evaluatePose(view,sequence,time,pose.data());poseBones(model,m2Sequence,time,reference);
+        plan.prepare(pose);std::fill(ready.begin(),ready.end(),0);
         size_t emitted=0;
         for(uint32_t b=0;b<view.h->batchCount;++b)
             for(uint32_t k=0;k<view.batches[b].indexCount;++k) {
                 const auto& sb=view.subBatches[view.batches[b].indexStart+k];
-                const int stride=fmt::skinVertexStride(sb.weights,(view.h->flags&fmt::kSkinFloatPosition)!=0,sb.reserved);
                 for(uint32_t i=0;i<sb.vertexCount;++i,++emitted) {
-                    const auto& v=bind[emittedSource[emitted]];glm::vec3 want;
-                    if(!skinVertex(v,reference,want,nullptr))want=v.position;
-                    const float distance=glm::length(geSkin(view,pose,sb,view.vertices(sb)+i*stride)-want);
+                    const auto vi=emittedSource[emitted];const auto& v=bind[vi];
+                    if(!ready[vi]){if(!skinVertex(v,reference,source[vi],nullptr))source[vi]=v.position;ready[vi]=1;}
+                    const float distance=glm::length(plan.skin(emitted)-source[vi]);
                     if(vertexSamples)++*vertexSamples;
                     if(sumSq)*sumSq+=static_cast<double>(distance)*distance;
                     if(distance>error&&worst)*worst="anim "+std::to_string(view.sequences[sequence].animId)+
                         " t="+std::to_string(time)+" vertex "+std::to_string(emittedSource[emitted]);
                     error=std::max(error,distance);
-                    if(distance>.02f&&badTimes)badTimes->insert(time);
+                    badTime|=distance>.02f;
                     if(distance>.02f&&badBones)
-                        for(int k=0;k<4;++k)if(v.boneWeights[k]&&v.boneIndices[k]<model.bones.size())badBones->insert(v.boneIndices[k]);
+                        for(int k=0;k<4;++k)if(v.boneWeights[k]&&v.boneIndices[k]<model.bones.size())affected[v.boneIndices[k]]=1;
                 }
             }
         for(const auto& attachment:model.attachments) {
@@ -1106,12 +1172,153 @@ inline float skinSequenceError(const fmt::SkinView& view, uint32_t sequence,
             const float distance=glm::length(actual-glm::vec3(reference[attachment.bone]*glm::vec4(p,1)));
             if(distance>error&&worst)*worst="point "+std::to_string(attachment.id)+" anim "+
                 std::to_string(view.sequences[sequence].animId)+" t="+std::to_string(time);
-            error=std::max(error,distance);if(distance>.02f&&badBones)badBones->insert(attachment.bone);
-            if(distance>.02f&&badTimes)badTimes->insert(time);
+            error=std::max(error,distance);if(distance>.02f&&badBones)affected[attachment.bone]=1;
+            badTime|=distance>.02f;
         }
+        if(badTime&&badTimes)badTimes->insert(time);
     }
+    if(badBones)for(size_t b=0;b<affected.size();++b)if(affected[b])badBones->insert(static_cast<uint16_t>(b));
+    bakeProgress(stage.c_str(),times.size(),times.size());
     return error;
 }
+
+// PSP: immutable-source, single-model memo. The ordinary oracle's complete
+// result is reused only for byte-equal evaluated geometry, bone/key/timing
+// semantics and the same complete probe-time union. Layout offsets and other
+// sequences' key allocation do not affect this sequence's evaluated motion.
+class SkinOracleMemo {
+    struct Result {
+        float error=0;size_t samples=0,probes=0;double sum=0;std::string worst;
+        std::set<uint16_t> bones;std::set<float> times;
+    };
+    const pipeline::M2Model& model_;
+    const std::vector<pipeline::M2Vertex>& bind_;
+    size_t budget_,bytes_=0,computations_=0;
+    using Key=std::pair<size_t,std::string>;
+    struct Geometry {size_t id,charge;};
+    size_t nextGeometry_=1;
+    std::map<Key,Geometry> geometries_;
+    std::map<Key,Result> entries_;
+    struct KeyParts {std::string geometry,sequence;};
+    void clear(){entries_.clear();geometries_.clear();bytes_=0;}
+    template<class T> static void add(std::string& key,const T& value) {
+        key.append(reinterpret_cast<const char*>(&value),sizeof(value));
+    }
+    static void array(std::string& key,const void* data,size_t bytes) {
+        add(key,bytes);if(bytes)key.append(static_cast<const char*>(data),bytes);
+    }
+    KeyParts keyFor(const fmt::SkinView& v,uint32_t sequence,int sourceSequence,
+                       const std::vector<uint32_t>& emitted,bool authored,const std::set<float>* pins) const {
+        KeyParts parts;std::string key;const auto& h=*v.h;
+        add(key,h.version);add(key,h.flags);
+        add(key,h.boneCount);add(key,h.batchCount);add(key,h.subBatchCount);
+        array(key,h.center,sizeof(h.center));array(key,h.half,sizeof(h.half));add(key,h.translationScale);
+        array(key,v.bones,h.boneCount*sizeof(fmt::SkinBone));
+        array(key,v.batches,h.batchCount*sizeof(fmt::ModelBatch));
+        for(uint32_t i=0;i<h.subBatchCount;++i) {
+            auto sb=v.subBatches[i];sb.vertexOffset=0;add(key,sb);
+            array(key,v.vertices(v.subBatches[i]),static_cast<size_t>(sb.vertexCount)*
+                fmt::skinVertexStride(sb.weights,(h.flags&fmt::kSkinFloatPosition)!=0,sb.reserved));
+        }
+        if(v.virtualPalettes)array(key,v.virtualPalettes,h.subBatchCount*fmt::kSkinMaxPalette*sizeof(fmt::SkinPaletteBlend));
+        array(key,emitted.data(),emitted.size()*sizeof(uint32_t));parts.geometry=std::move(key);key={};
+        add(key,sourceSequence);add(key,authored);add(key,v.sequences[sequence]);
+        const auto* timing=v.sequenceTimes(sequence);add(key,timing!=nullptr);
+        if(timing)array(key,timing,v.sequences[sequence].frameCount*sizeof(uint32_t));
+        for(uint32_t b=0;b<h.boneCount;++b) {
+            const auto& track=v.tracks[sequence*h.boneCount+b];
+            const uint32_t refs[]={track.rotation,track.translation,track.scale};
+            for(unsigned component=0;component<3;++component) {
+                const auto ref=refs[component];
+                if(ref==fmt::kTrackNone){add(key,ref);continue;}
+                const bool compact=h.version==fmt::kSkinTimedVersion&&component==1&&(ref&fmt::kTrackCompactTranslation);
+                const uint32_t encoding=(ref&fmt::kTrackAnimated)|(compact?fmt::kTrackCompactTranslation:0u);
+                add(key,encoding);
+                const uint32_t first=ref&~(fmt::kTrackAnimated|(compact?fmt::kTrackCompactTranslation:0u));
+                size_t count=(ref&fmt::kTrackAnimated)?v.sequences[sequence].frameCount:1u;
+                if((h.version>=fmt::kSkinFloatScaleVersion&&component==2)||
+                   (h.version==fmt::kSkinTimedVersion&&component==1&&!compact)||
+                   (component==0&&(h.flags&fmt::kSkinFloatRotation)))count*=2;
+                array(key,v.blob+h.keyOffset+static_cast<size_t>(first)*8,count*8);
+            }
+        }
+        const auto times=skinProbeTimes(v,sequence,model_,sourceSequence,authored,pins);
+        add(key,times.size());for(float time:times)add(key,time);
+        parts.sequence=std::move(key);return parts;
+    }
+    static void apply(const Result& r,std::set<uint16_t>* bones,size_t* samples,size_t* probes,double* sum,
+                      std::string* worst,std::set<float>* bad) {
+        if(bones)bones->insert(r.bones.begin(),r.bones.end());
+        if(bad)bad->insert(r.times.begin(),r.times.end());
+        if(samples)*samples=r.samples;
+        if(probes)*probes=r.probes;
+        if(sum)*sum=r.sum;
+        if(worst&&r.error>0)*worst=r.worst;
+    }
+public:
+    explicit SkinOracleMemo(const pipeline::M2Model& model,const std::vector<pipeline::M2Vertex>& bind,
+                            size_t budget=64u*1024u*1024u):model_(model),bind_(bind),budget_(budget) {}
+    size_t computations() const{return computations_;}
+    size_t retainedBytes() const{return bytes_;}
+    bool matchesSource(const pipeline::M2Model& model,const std::vector<pipeline::M2Vertex>& bind) const noexcept {
+        return &model_ == &model && &bind_ == &bind;
+    }
+    float measure(const fmt::SkinView& view,uint32_t sequence,int sourceSequence,const std::vector<uint32_t>& emitted,
+                  bool authored=false,std::set<uint16_t>* bones=nullptr,size_t* samples=nullptr,size_t* probes=nullptr,
+                  double* sum=nullptr,std::string* worst=nullptr,const std::set<float>* pins=nullptr,std::set<float>* bad=nullptr) {
+        if(!budget_) {
+            ++computations_;
+            return skinSequenceError(view,sequence,model_,sourceSequence,bind_,emitted,authored,bones,samples,probes,sum,worst,pins,bad);
+        }
+        Key key;typename std::map<Key,Geometry>::iterator geometry;
+        try {
+            auto parts=keyFor(view,sequence,sourceSequence,emitted,authored,pins);
+            Key geometryKey{std::hash<std::string>{}(parts.geometry),std::move(parts.geometry)};
+            geometry=geometries_.find(geometryKey);
+            if(geometry==geometries_.end()) {
+                const size_t charge=sizeof(Key)+sizeof(Geometry)+128+geometryKey.second.capacity();
+                if(charge>budget_) {
+                    ++computations_;
+                    return skinSequenceError(view,sequence,model_,sourceSequence,bind_,emitted,authored,bones,samples,probes,sum,worst,pins,bad);
+                }
+                if(bytes_>budget_-charge)clear();
+                // IDs remain unique while any old sequence entry is alive.
+                if(nextGeometry_==std::numeric_limits<size_t>::max()){clear();nextGeometry_=1;}
+                geometry=geometries_.emplace(std::move(geometryKey),Geometry{nextGeometry_++,charge}).first;
+                bytes_+=charge;
+            }
+            key.second=std::move(parts.sequence);add(key.second,geometry->second.id);
+            key.first=std::hash<std::string>{}(key.second);
+            const auto found=entries_.find(key);
+            if(found!=entries_.end()){apply(found->second,bones,samples,probes,sum,worst,bad);return found->second.error;}
+        } catch(const std::bad_alloc&) {
+            ++computations_;
+            return skinSequenceError(view,sequence,model_,sourceSequence,bind_,emitted,authored,bones,samples,probes,sum,worst,pins,bad);
+        }
+        Result result;++computations_;
+        try {
+            result.error=skinSequenceError(view,sequence,model_,sourceSequence,bind_,emitted,authored,
+                &result.bones,&result.samples,&result.probes,&result.sum,&result.worst,pins,&result.times);
+        } catch(const std::bad_alloc&) {
+            return skinSequenceError(view,sequence,model_,sourceSequence,bind_,emitted,authored,bones,samples,probes,sum,worst,pins,bad);
+        }
+        apply(result,bones,samples,probes,sum,worst,bad);
+        // Conservative charge includes node/string/set overhead. Exceeding the
+        // host-only budget or failing allocation disables reuse, never quality.
+        const size_t charge=sizeof(Result)+sizeof(Key)+128+key.second.capacity()+result.worst.capacity()+
+            64*(result.bones.size()+result.times.size());
+        if(charge<=budget_-geometry->second.charge)try {
+            if(bytes_>budget_-charge) {
+                // Keep this exact geometry/ID during eviction; no stale result
+                // can ever bind to a later, different geometry with that ID.
+                auto keep=geometries_.extract(geometry);clear();bytes_=keep.mapped().charge;
+                geometries_.insert(std::move(keep));
+            }
+            entries_.emplace(std::move(key),result);bytes_+=charge;
+        } catch(const std::bad_alloc&) {clear();}
+        return result.error;
+    }
+};
 
 // PSP: only retain a denser sequence when the packed baseline actually fails
 // and the extra keys measurably improve it. The full converters' existing
@@ -1123,12 +1330,18 @@ inline std::vector<uint8_t> bakeSkinned(const pipeline::M2Model& model, const st
                                        const std::vector<uint16_t>* keepBones=nullptr,
                                        const std::vector<uint32_t>* frameIntervals=nullptr,
                                        size_t animationBudget=384u*1024u,
-                                       const SkinVisibilityPolicy* visibility=nullptr) {
+                                       const SkinVisibilityPolicy* visibility=nullptr,
+                                       SkinOracleMemo* sharedMemo=nullptr) {
+    SkinOracleMemo localMemo(model,bind);
+    auto& memo=!visibility&&sharedMemo&&sharedMemo->matchesSource(model,bind)?*sharedMemo:localMemo;
+    std::string operation="grid-check";
     auto measure=[&](const fmt::SkinView& view,uint32_t sequence,const pipeline::M2Model& source,int m2Sequence,
                      const std::vector<pipeline::M2Vertex>& vertices,const std::vector<uint32_t>& emitted,
                      bool authored=false,std::set<uint16_t>* bones=nullptr,size_t* samples=nullptr,
                      size_t* probes=nullptr,double* sum=nullptr,std::string* worst=nullptr,
                      const std::set<float>* pins=nullptr,std::set<float>* bad=nullptr) {
+        SkinOracleOperationScope reporting(operation.c_str());
+        if(!visibility)return memo.measure(view,sequence,m2Sequence,emitted,authored,bones,samples,probes,sum,worst,pins,bad);
         return skinSequenceError(view,sequence,source,m2Sequence,vertices,emitted,authored,bones,samples,
                                  probes,sum,worst,pins,bad,visibility);
     };
@@ -1140,6 +1353,7 @@ inline std::vector<uint8_t> bakeSkinned(const pipeline::M2Model& model, const st
     // zero skips that pass (characters). The existing 384-KiB representation
     // heuristics still prefer compact keys/grids when they preserve accuracy.
     // The caller separately enforces its actual allocation cap.
+    bakeProgress("sampling");
     auto candidate=bakeSkinnedRaw(model,bind,batches,sequenceIndices,standSeq,rate,info,false,keepBones,frameIntervals);
     fmt::SkinView dense;if(!dense.init(candidate.data(),static_cast<uint32_t>(candidate.size())))return {};
     std::vector<uint32_t> base(sequenceIndices.size()),chosen(sequenceIndices.size());bool refined=false;
@@ -1179,6 +1393,7 @@ inline std::vector<uint8_t> bakeSkinned(const pipeline::M2Model& model, const st
         if(!dense.init(candidate.data(),static_cast<uint32_t>(candidate.size())))return {};
     }
     const bool needVirtual=info.trimmedInfluences!=0;
+    operation="precision-check";
     bool needPrecision=needVirtual;
     std::vector<float> errors(sequenceIndices.size());
     for(size_t s=0;s<sequenceIndices.size();++s) {
@@ -1212,6 +1427,7 @@ inline std::vector<uint8_t> bakeSkinned(const pipeline::M2Model& model, const st
         if(improves){candidate=std::move(accurate);info=std::move(accurateInfo);precise=true;virtuals=needVirtual;}
     }
     fmt::SkinView current;if(!current.init(candidate.data(),static_cast<uint32_t>(candidate.size())))return {};
+    operation="timing-check";
     bool timingNeeded=false,realRefinement=false;
     std::vector<float> currentErrors(sequenceIndices.size());
     for(size_t s=0;s<sequenceIndices.size();++s) {
@@ -1228,6 +1444,7 @@ inline std::vector<uint8_t> bakeSkinned(const pipeline::M2Model& model, const st
     const uint64_t timingSampleLimit=std::max<uint64_t>(131072,std::min<uint64_t>(1048576,2*existingSamples));
     std::vector<std::vector<uint32_t>> timedFrames;
     if(timingNeeded) {
+        operation="timing-baseline";
         timedFrames.resize(sequenceIndices.size());uint64_t samples=0;
         std::vector<uint8_t> authoredGrid(sequenceIndices.size());
         for(size_t s=0;s<sequenceIndices.size();++s) {
@@ -1259,6 +1476,7 @@ inline std::vector<uint8_t> bakeSkinned(const pipeline::M2Model& model, const st
         float bestWorst=1e30f;bool bestCompact=false,bestSlerp=false,bestFloatRotation=false;
         for(int refinement=0;refinement<5 && samples<=timingSampleLimit &&
             std::all_of(timedFrames.begin(),timedFrames.end(),[](const auto& t){return t.size()<=65535;});++refinement) {
+            operation="timing-refine "+std::to_string(refinement+1);bakeProgress(operation.c_str(),refinement,5);
             SkinBakeInfo timedInfo;
             auto timed=bakeSkinnedRaw(model,bind,batches,sequenceIndices,standSeq,rate,timedInfo,false,keepBones,nullptr,true,needVirtual,floatPositions,&timedFrames);
             fmt::SkinView view;if(!view.init(timed.data(),static_cast<uint32_t>(timed.size())))return {};
@@ -1274,6 +1492,7 @@ inline std::vector<uint8_t> bakeSkinned(const pipeline::M2Model& model, const st
             }
             if(timedInfo.animBytes>384u*1024u) {
               for(int promotion=0;promotion<4;++promotion) {
+                operation="timing-promote "+std::to_string(refinement+1)+"/"+std::to_string(promotion+1);
                 SkinBakeInfo compactInfo;
                 auto compact=bakeSkinnedRaw(model,bind,batches,sequenceIndices,standSeq,rate,compactInfo,false,keepBones,
                     nullptr,true,needVirtual,floatPositions,&timedFrames,true,&floatTracks);
@@ -1350,6 +1569,7 @@ inline std::vector<uint8_t> bakeSkinned(const pipeline::M2Model& model, const st
                 std::vector<size_t> order(sequenceIndices.size());std::iota(order.begin(),order.end(),0);
                 std::sort(order.begin(),order.end(),[&](size_t a,size_t b){return bestFrames[a].size()>bestFrames[b].size();});
                 for(unsigned phase=0;phase<6&&bestInfo.animBytes>animationBudget;++phase)for(size_t s:order) {
+                    operation="coarsen "+std::to_string(phase+1);bakeProgress(operation.c_str(),s,order.size());
                     if(bestInfo.animBytes<=animationBudget)break;
                     const auto full=bestFrames[s];if(full.size()<4)continue;
                     fmt::SkinView aliases;
@@ -1429,6 +1649,7 @@ inline std::vector<uint8_t> bakeSkinned(const pipeline::M2Model& model, const st
             }
             if(authoredSamples<=timingSampleLimit&&std::all_of(authored.begin(),authored.end(),[](const auto& t){return t.size()<=65535;}))
             for(unsigned rotationPrecision=0;rotationPrecision<2;++rotationPrecision) {
+                operation="slerp-check "+std::to_string(rotationPrecision+1);
                 auto measureExact=[&](const std::vector<uint8_t>& bytes,const SkinBakeInfo& stats,std::vector<std::set<uint16_t>>* affected=nullptr) {
                     fmt::SkinView view;if(!view.init(bytes.data(),static_cast<uint32_t>(bytes.size())))return 1e30f;
                     float worst=0;
@@ -1510,14 +1731,20 @@ inline SkinVerifyResult verifySkinned(const std::vector<uint8_t>& blob, const pi
     }
     std::vector<fmt::BoneMatrix> pose(view.h->boneCount);
     std::vector<glm::mat4> ref;
+    SkinOraclePlan plan(view);std::vector<glm::vec3> source(bind.size());std::vector<uint8_t> ready(bind.size());
     for (int s = 0; s < view.h->sequenceCount; ++s) {
         const int si = sequenceIndices[s];
         const float dur = static_cast<float>(view.sequences[s].durationMs);
         const auto* pinned=static_cast<size_t>(s)<info.verificationTimes.size()?&info.verificationTimes[s]:nullptr;
-        for (float t : skinProbeTimes(view,static_cast<uint32_t>(s),model,si,true,pinned)) {
+        const auto times=skinProbeTimes(view,static_cast<uint32_t>(s),model,si,true,pinned);
+        const std::string stage="verify anim "+std::to_string(view.sequences[s].animId);size_t timeIndex=0;
+        bakeProgress(stage.c_str(),0,times.size());
+        for (float t : times) {
+            if((timeIndex++&63u)==0)bakeProgress(stage.c_str(),timeIndex-1,times.size());
             ++r.probeTimes;
             fmt::evaluatePose(view, s, t, pose.data());
             poseBones(model, si, t, ref);
+            plan.prepare(pose);std::fill(ready.begin(),ready.end(),0);
             size_t e = 0;
             double seqMax = 0.0;
             for (int b = 0; b < view.h->batchCount; ++b) {
@@ -1525,15 +1752,11 @@ inline SkinVerifyResult verifySkinned(const std::vector<uint8_t>& blob, const pi
                 const bool dumpIt = dump && t == dur * 0.37f && (!dumpGeosets || dumpGeosets->count(view.geosets[b]));
                 for (uint32_t k = 0; k < mb.indexCount; ++k) {
                     const fmt::SkinSubBatch& sb = view.subBatches[mb.indexStart + k];
-                    const uint8_t* verts = view.vertices(sb);
-                    const int stride = fmt::skinVertexStride(sb.weights, (view.h->flags & fmt::kSkinFloatPosition) != 0,sb.reserved);
                     std::vector<glm::vec3> ours(sb.vertexCount);
                     for (uint32_t i = 0; i < sb.vertexCount; ++i, ++e) {
-                        ours[i] = geSkin(view, pose, sb, verts + static_cast<size_t>(i) * stride);
-                        glm::vec3 want;
-                        if (!skinVertex(bind[info.emittedSource[e]], ref, want, nullptr))
-                            want = bind[info.emittedSource[e]].position;
-                        const double err = glm::length(ours[i] - want);
+                        ours[i] = plan.skin(e);const auto vi=info.emittedSource[e];
+                        if(!ready[vi]){if(!skinVertex(bind[vi],ref,source[vi],nullptr))source[vi]=bind[vi].position;ready[vi]=1;}
+                        const double err = glm::length(ours[i] - source[vi]);
                         r.sumSq += err * err;
                         ++r.samples;
                         seqMax = std::max(seqMax, err);

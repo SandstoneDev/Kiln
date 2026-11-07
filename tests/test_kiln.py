@@ -363,6 +363,8 @@ class XmbTest(unittest.TestCase):
         self.assertAlmostEqual(ratio, 16 / 9, delta=0.1)
 
 
+
+
 def fake_client(root, name, locales, exe=b"MZ synthetic"):
     """A synthetic client folder: <root>/<name>/game.exe + Data/<xxYY>/locale-<xxYY>.MPQ (empty files)."""
     g = os.path.join(root, name)
@@ -874,7 +876,8 @@ class CheckUpdateTest(unittest.TestCase):
         out_json = os.path.join(self.out, "data", "expansions", "p1", "expansion.json")
         man = self.manifest()
         ident = man["steps"]["profile"]["identity"]
-        self.assertEqual((ident["input"]["locale"], ident["kiln"], man["hash"]), ("enUS", "0.2.0", "sha256"))
+        from kilnlib import KILN_VERSION
+        self.assertEqual((ident["input"]["locale"], ident["kiln"], man["hash"]), ("enUS", KILN_VERSION, "sha256"))
         self.assertIn("profiles", ident)
         rc, ev = self.kiln("--check")
         self.assertEqual((rc, self.kinds(ev)), (0, []))

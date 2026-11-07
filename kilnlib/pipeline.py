@@ -6,6 +6,7 @@ Progress goes to the console as text, or with --json as one JSON object per line
 from __future__ import annotations
 
 import fnmatch
+import contextlib
 import glob
 import hashlib
 import json
@@ -19,6 +20,7 @@ import time
 
 from . import KILN_VERSION, mapdb, steps as S, winrt, xmb
 from .manifest import sha256_file
+from .journal import Journal, drain_stream, progress_snapshot
 
 EXE = ".exe" if os.name == "nt" else ""
 PATH_PARAMS = ("X", "XG", "D", "W", "L")
@@ -50,6 +52,10 @@ class Ctx:
         self.hash_cache = {}
         self.running = {}            # step name -> start time
         self.running_locale = {}     # step name -> its locale (for the 'running' events)
+        self.journal = Journal(os.path.join(self.logs, "kiln.log"), enabled=not (
+            getattr(a, "dry_run", False) or getattr(a, "plan_update", False)))
+        self.run_id = self.journal.run_id
+        self.allocation_failures = set()  # current attempt only; never inferred from historical logs
 
     # -- locales --------------------------------------------------------------------------------
     def locale_folders(self, loc):
@@ -91,12 +97,7 @@ class Ctx:
     def _logline(self, msg):
         if getattr(self.a, "dry_run", False) or getattr(self.a, "plan_update", False):
             return                       # a dry run writes nothing
-        try:
-            os.makedirs(self.logs, exist_ok=True)
-            with open(os.path.join(self.logs, "kiln.log"), "a", encoding="utf-8") as f:
-                f.write(time.strftime("%H:%M:%S ") + msg + "\n")
-        except OSError:
-            pass
+        self.journal.write(msg)
 
     def event(self, kind, **fields):
         if not self.json:
@@ -377,25 +378,64 @@ def map_groups_wanted(spec):
 
 # ------------------------------------------------------------------------------------------------
 def run_cmd(ctx, argv, log_path, cwd, stdout_path=None):
-    os.makedirs(os.path.dirname(log_path), exist_ok=True)
+    # log_path remains an operation identifier for existing callers, never a destination.
+    step = os.path.basename(log_path).removesuffix(".log")
     os.makedirs(cwd, exist_ok=True)
-    with open(log_path, "a", encoding="utf-8", errors="replace") as log:
-        log.write("\n$ %s\n" % subprocess.list2cmdline(argv))
-        log.flush()
-        t0 = time.time()
+    ctx.journal.write("$ %s" % subprocess.list2cmdline(argv), step, "command")
+    t0 = time.monotonic()
+    errors = []
+
+    def line(text, stream):
+        # Keep draining even if a full disk, output consumer or journal fails.
         try:
-            if stdout_path:
-                with open(stdout_path, "w", encoding="utf-8", errors="replace") as so:
-                    r = subprocess.run(argv, cwd=cwd, env=ctx.env(argv), stdout=so, stderr=log,
-                                       stdin=subprocess.DEVNULL)
-            else:
-                r = subprocess.run(argv, cwd=cwd, env=ctx.env(argv), stdout=log, stderr=subprocess.STDOUT,
-                                   stdin=subprocess.DEVNULL)
-            rc = r.returncode
-        except OSError as e:
-            log.write("cannot start: %s\n" % e)
-            rc = 127
-        log.write("# rc=%d  %.1f s\n" % (rc, time.time() - t0))
+            ctx.journal.write(text, step, stream)
+            if "std::bad_alloc" in text:
+                ctx.allocation_failures.add(step)
+            snapshot = progress_snapshot(text)
+            if snapshot is not None:
+                ctx.event("step_progress", step=step, **snapshot)
+        except Exception as e:
+            if not errors:
+                errors.append(e)
+
+    def read(pipe, stream, raw=None):
+        try:
+            drain_stream(pipe, lambda text: line(text, stream), raw)
+        except Exception as e:
+            if not errors:
+                errors.append(e)
+            # A failed functional-output write must not abandon the child's pipe.
+            while pipe.read(65536):
+                pass
+        finally:
+            pipe.close()
+
+    try:
+        with (open(stdout_path, "wb") if stdout_path else contextlib.nullcontext()) as raw:
+            with subprocess.Popen(argv, cwd=cwd, env=ctx.env(argv), stdout=subprocess.PIPE,
+                                  stderr=subprocess.PIPE, stdin=subprocess.DEVNULL) as process:
+                readers = [threading.Thread(target=read, args=(process.stdout, "stdout", raw)),
+                           threading.Thread(target=read, args=(process.stderr, "stderr"))]
+                started = []
+                try:
+                    for reader in readers:
+                        reader.start()
+                        started.append(reader)
+                    rc = process.wait()
+                except BaseException:
+                    process.kill()
+                    process.wait()
+                    raise
+                finally:
+                    for reader in started:
+                        reader.join()
+    except (OSError, RuntimeError) as e:
+        ctx.journal.write("cannot start or capture output: %s" % e, step, "error")
+        rc = 127
+    if errors:
+        ctx.event("error", message="Could not record all output of %s: %s" % (step, errors[0]))
+        rc = rc or 127
+    ctx.journal.write("# rc=%d  %.1f s" % (rc, time.monotonic() - t0), step, "result")
     return rc
 
 
@@ -505,7 +545,7 @@ def run_probe(ctx, step, probe):
         target = ctx.folder(step, "XG" if probe.target == "XG" else "X")
         os.makedirs(target, exist_ok=True)
         erc = extract(ctx, [], names_file=list_file, target=target, locale=ctx.step_locale(step))
-        ctx.say("    %s: %d paths not named by the archives' listfiles -> extractor (rc %d, logs/extract.log)"
+        ctx.say("    %s: %d paths not named by the archives' listfiles -> extractor (rc %d, logs/kiln.log)"
                 % (step.name, n, erc))
     return rc, n
 
@@ -520,7 +560,7 @@ def make_dirs(ctx, step):
 def builtin_profile(ctx, step, log_path):
     """Copy the port's protocol profile whose expansion.json names the identified build."""
     src_root = os.path.join(ctx.bakers, "Data", "expansions")
-    with open(log_path, "a", encoding="utf-8") as log:
+    with ctx.journal.stream(step.name) as log:
         if not os.path.isdir(src_root):
             log.write("no profiles in %s\n" % src_root)
             return 1
@@ -545,7 +585,7 @@ def builtin_profile(ctx, step, log_path):
 
 def builtin_xmb(ctx, step, log_path):
     out_dir = os.path.join(ctx.out, "xmb")
-    with open(log_path, "a", encoding="utf-8") as log:
+    with ctx.journal.stream(step.name) as log:
         try:
             icon0, pic1 = xmb.make_art(ctx.folder(step, "X"), out_dir, log=lambda m: log.write(m + "\n"))
             log.write("ICON0 %s, PIC1 %s\n" % (xmb.png_size(icon0), xmb.png_size(pic1)))
@@ -629,15 +669,17 @@ def run_step(ctx, man, step, idx, total, must_run=False):
         ctx.say("[%3d/%d] %-34s up to date (skipped)" % (idx, total, step.name))
         ctx.event("step", name=step.name, state="skipped", index=idx, total=total, locale=ctx.step_locale(step))
         return "skipped"
-    with open(log, "w", encoding="utf-8") as f:
-        f.write("kiln %s step %s: %s\n" % (KILN_VERSION, step.name, step.title))
+    man.begin(step.name, key=key, identity=ident, state="running")
+    man.save()
+    ctx.allocation_failures.discard(step.name)
+    ctx.journal.write("kiln %s step %s: %s" % (KILN_VERSION, step.name, step.title), step.name)
     vals = {k: v for k, v in step.params.items() if isinstance(v, str) and k not in PATH_PARAMS}
     for pat in step.clean:
         for f in glob.glob(os.path.join(ctx.out, pat.format(**vals))):
             os.remove(f)
     ctx.say("[%3d/%d] %-34s running" % (idx, total, step.name))
     ctx.event("step", name=step.name, state="start", index=idx, total=total, title=step.title,
-              log=os.path.relpath(log, ctx.out), locale=ctx.step_locale(step))
+              log="logs/kiln.log", locale=ctx.step_locale(step))
     t0 = time.time()
     ctx.running[step.name] = t0
     ctx.running_locale[step.name] = ctx.step_locale(step)
@@ -674,7 +716,7 @@ def run_step(ctx, man, step, idx, total, must_run=False):
                seconds=secs, note=note, identity=ident, key_version=1)
     warn = post_check(ctx, step, outs) if status == "ok" else ""
     if status == "ok" and quality_rc:
-        q = "quality warnings (rc %d): see logs/%s.log - the output is complete" % (quality_rc, step.name)
+        q = "quality warnings (rc %d): see logs/kiln.log [step=%s] - the output is complete" % (quality_rc, step.name)
         warn = "%s; %s" % (warn, q) if warn else q
     if warn:
         man.mark(step.name, warnings=[warn])
@@ -684,7 +726,7 @@ def run_step(ctx, man, step, idx, total, must_run=False):
     size = sum(os.path.getsize(os.path.join(ctx.out, o)) for o in outs)
     ctx.say("[%3d/%d] %-34s %s  %.1f s  %d file(s) %.1f MB%s" % (
         idx, total, step.name, status.upper(), secs, len(outs), size / 1048576.0,
-        "" if status == "ok" else "  (see logs/%s.log)" % step.name))
+        "" if status == "ok" else "  (see logs/kiln.log [step=%s])" % step.name))
     ctx.event("step", name=step.name, state=status, index=idx, total=total, seconds=round(secs, 1),
               files=len(outs), bytes=size, note=note, locale=ctx.step_locale(step))
     return status
@@ -730,7 +772,7 @@ def verify_existing(ctx, man, chosen):
         for cmd in st.verify:
             if run_cmd(ctx, ctx.expand(cmd, st), log, ctx.folder(st, "W")):
                 vfail += 1
-                ctx.say("  %-24s verify command failed (logs/%s.verify.log)" % (st.name, st.name))
+                ctx.say("  %-24s verify command failed (logs/kiln.log)" % st.name)
                 ctx.event("verify", step=st.name, problem="verify command failed", locale=ctx.step_locale(st))
                 break
     return len(bad), vfail

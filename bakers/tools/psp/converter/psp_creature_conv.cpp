@@ -77,6 +77,7 @@
 #include "rendering/psp/psp_gameobject_format.hpp"  // kGoAnimDisplayBase
 
 #include "gameobject_anim_select.hpp"  // clean room: gameobject_anim_select.md
+#include "bake_progress.hpp"  // PSP: host-only live progress, independent of bake results
 #include "model_bake.hpp"
 #include "npc_outfit.hpp"  // clean room: outfit_geosets.md 3.3
 #include "skin_bake.hpp"  // creature anim
@@ -87,6 +88,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstdarg>
+#include <exception>
 #include <filesystem>
 #include <functional>
 #include <mutex>
@@ -189,16 +191,33 @@ double secondsSince(std::chrono::steady_clock::time_point t0) {
 // `f(i)` for i in [0, n) on `jobs` threads (1 = this thread), in the order `order` gives (all of [0, n)).
 void parallelFor(size_t n, unsigned jobs, const std::vector<size_t>& order, const std::function<void(size_t)>& f) {
     std::atomic<size_t> next{0};
+    std::atomic<bool> failed{false};
+    std::mutex exceptionMutex;
+    std::exception_ptr exception;
     auto worker = [&]() {
-        for (size_t k; (k = next.fetch_add(1)) < n;) f(order.empty() ? k : order[k]);
+        try {
+            for (size_t k; !failed.load() && (k = next.fetch_add(1)) < n;) f(order.empty() ? k : order[k]);
+        } catch (...) {
+            std::lock_guard<std::mutex> lock(exceptionMutex);
+            if (!exception) exception = std::current_exception();
+            failed = true;
+        }
     };
     if (jobs <= 1 || n <= 1) {
         worker();
+        if (exception) std::rethrow_exception(exception);
         return;
     }
     std::vector<std::thread> threads;
-    for (unsigned t = 0; t < jobs && t < n; ++t) threads.emplace_back(worker);
+    try {
+        for (unsigned t = 0; t < jobs && t < n; ++t) threads.emplace_back(worker);
+    } catch (...) {
+        failed = true;
+        for (auto& t : threads) t.join();
+        throw;
+    }
     for (auto& t : threads) t.join();
+    if (exception) std::rethrow_exception(exception);
 }
 
 // upstream CharacterRenderer::playAnimation: variation 0 of the id, else the
@@ -806,6 +825,7 @@ public:
         : root_(std::move(root)), tex_(tex), out_(out), outMutex_(outMutex) {}
 
     void bake(ModelPlan& mp) {
+        bakeProgress("loading");
         std::vector<uint8_t> m2;
         pipeline::M2Model model;
         if (!readFile(root_ + "/" + mp.key, m2) ||
@@ -817,16 +837,19 @@ public:
         if(mp.scopedQuality&&!scopedSkinSourceMatches(scopedSourceAt(root_,mp,m2)))
             throw std::runtime_error("qualified source changed after planning");
         const std::vector<pipeline::M2Vertex> bindVertices = model.vertices;  // before the stand pose
+        bakeProgress("stand_pose");
         const bool posed = poseStand(root_, mp.path, m2, model);
         WmdlBuilder o;
         std::vector<SkinBatchIn> skinBatches;  // creature anim
         std::vector<SkinBatchIn>* sb = g_animate ? &skinBatches : nullptr;
+        bakeProgress("mesh");
         bool ok = addBatches(model, 0, o, mp, false, sb);
         const size_t lod0Batches = mp.batchGeoset.size();
         // LOD 1: the last lower skin with at most 60 % of the indices, on the
         // posed vertices (a skin only replaces indices and batches).
         const uint32_t fullIdx = levelZeroIndices(model);
         const std::string base = mp.key.substr(0, mp.key.size() - 3);
+        bakeProgress("mesh_lod");
         for (int s = 3; ok && s >= 1; --s) {
             char suffix[16];
             std::snprintf(suffix, sizeof(suffix), "%02d.skin", s);
@@ -858,6 +881,7 @@ public:
             return;
         }
         WmdlInfo info;
+        bakeProgress("mesh_pack");
         std::vector<uint8_t> blob = o.build(model.vertices, 0, true, info);
         const auto* h = reinterpret_cast<const fmt::ModelHeader*>(blob.data());
         if (mp.batchGeoset.size() != static_cast<size_t>(h->batchCount[0]) + h->batchCount[1]) {
@@ -882,6 +906,7 @@ public:
             if(mp.scopedQuality)++g_scopedFailures;
         }
         if(mp.scopedQuality&&nBlob.empty())++g_scopedFailures;
+        bakeProgress("attachments");
         bakePoints(mp, model, bindVertices, posed, nBlob.empty() ? nullptr : &nBlob,
                    mp.scopedQuality?&pointPins:nullptr);
         mp.baked = true;
@@ -1008,6 +1033,7 @@ private:
                                       const std::vector<pipeline::M2Vertex>& bind,
                                       const std::vector<SkinBatchIn>& batches, size_t lod0Batches,
                                       std::vector<std::set<float>>* pointPins) {
+        bakeProgress("animation_selection");
         if (batches.size() != mp.batchGeoset.size()) {
             appendf(mp.log, "  n_%d: %zu skin batches for %zu model batches - static only\n", mp.id, batches.size(),
                     mp.batchGeoset.size());
@@ -1051,14 +1077,17 @@ private:
         }
         const int standSeq = findSequence(model, 0);
         const auto qualityModel=attachmentWitnessModel(model);
+        SkinOracleMemo ordinaryMemo(qualityModel,bind); // PSP: one immutable model across prefix-budget trials
         const SkinVisibilityPolicy scopedPolicy;
         const auto* policy=mp.scopedQuality?&scopedPolicy:nullptr;
         const size_t animationBudget=mp.scopedQuality?600u*1024u:384u*1024u;
         SkinBakeInfo si;
         auto bakeFirst = [&](size_t n, SkinBakeInfo& info) {
+            bakeProgress("animation_bake");
             const std::vector<int> prefix(seqs.begin(), seqs.begin() + static_cast<std::ptrdiff_t>(n));
             return bakeSkinned(qualityModel, bind, batches, prefix, standSeq, g_rate, info, false,
-                               keep.empty() ? nullptr : &keep,nullptr,animationBudget,policy);  // mounts (seat bones)
+                               keep.empty() ? nullptr : &keep,nullptr,animationBudget,policy,
+                               policy?nullptr:&ordinaryMemo);  // mounts (seat bones)
         };
         // The cap keeps the longest prefix of the priority list that fits (the animation bytes grow with
         // every sequence): one bake when all fit, else a binary search (was one bake per dropped sequence).
@@ -1090,6 +1119,7 @@ private:
             h.reserved[0] = static_cast<uint32_t>(lod0Batches);
         }
         std::memcpy(blob.data(), &h, sizeof(h));
+        bakeProgress("footstep_events");
         const size_t fsd = appendFootstepEvents(blob, root_, mp.path, m2, model, seqs);  // sounds
         if (fsd) appendf(mp.log, "  n_%d: %zu footstep events\n", mp.id, fsd);           // sounds
         appendf(mp.log,
@@ -1107,6 +1137,7 @@ private:
         }
         appendf(mp.log, "\n");
         if (g_verify) {
+            bakeProgress("animation_verify");
             std::vector<uint8_t> dump;
             const SkinVerifyResult r =
                 verifySkinned(blob, mp.scopedQuality?qualityModel:model, bind, seqs, si, batches,
@@ -2079,7 +2110,6 @@ int main(int argc, char** argv) {
         return 1;
     }
     std::mutex writerMutex;
-    std::mutex progressMutex;
 
     qualifyScopedModels(root,db,!spawnsPath.empty(),planner.models);
     // ---- 2. textures (threads) ----
@@ -2088,7 +2118,11 @@ int main(int argc, char** argv) {
     std::atomic<uint64_t> texBytes{0};
     {
         std::vector<TexJob>& tj = tex.jobs();
+        // PSP: texture jobs are short and numerous: heartbeat/final counts only.
+        BakeProgressMonitor progress("textures", tj.size(), stderr, std::chrono::seconds(1), false);
         parallelFor(tj.size(), jobs, {}, [&](size_t i) {
+            BakeProgressJob job(progress, i, static_cast<int>(i), tj[i].key);
+            bakeProgress("texture_decode");
             std::vector<uint8_t> blob = bakeTexture(root, texMax, tj[i]);
             if (blob.empty()) {
                 ++texFailed;
@@ -2097,11 +2131,8 @@ int main(int argc, char** argv) {
                 std::lock_guard<std::mutex> lock(writerMutex);
                 writer.add("x_" + std::to_string(i), kKindTexture, blob.data(), blob.size());
             }
-            const size_t n = ++texDone;
-            if (n % 2000 == 0 || n == tj.size()) {
-                std::lock_guard<std::mutex> lock(progressMutex);
-                std::fprintf(stderr, "textures %zu/%zu, %.0f s\n", n, tj.size(), secondsSince(tTex));
-            }
+            ++texDone;
+            job.complete(!blob.empty());
         });
     }
     std::printf("textures: %zu baked (%zu unreadable), %llu KB, %.1f s\n", texDone.load() - texFailed.load(),
@@ -2115,27 +2146,27 @@ int main(int argc, char** argv) {
     for (size_t i = 0; i < order.size(); ++i) order[i] = i;
     std::stable_sort(order.begin(), order.end(),
                      [&](size_t a, size_t b) { return models[a].m2Bytes > models[b].m2Bytes; });
-    std::atomic<size_t> modelsDone{0};
     ModelBaker baker(root, tex, writer, writerMutex);
-    parallelFor(models.size(), jobs, order, [&](size_t i) {
-        try {
-            baker.bake(models[i]);
-            if(models[i].scopedQuality&&!models[i].baked)++g_scopedFailures;
-        } catch (const std::exception& ex) {
-            appendf(models[i].log, "  model %s: exception %s\n", models[i].key.c_str(), ex.what());
-            models[i].baked = false;
-            if(models[i].scopedQuality)++g_scopedFailures;
-        }
-        const size_t n = ++modelsDone;
-        if (n % 50 == 0 || n == models.size()) {
-            std::lock_guard<std::mutex> lock(progressMutex);
-            std::fprintf(stderr, "models %zu/%zu, %.0f s\n", n, models.size(), secondsSince(tModels));
-        }
-    });
+    {
+        BakeProgressMonitor progress("models", models.size());
+        parallelFor(models.size(), jobs, order, [&](size_t i) {
+            BakeProgressJob job(progress, i, models[i].id, models[i].key);
+            try {
+                baker.bake(models[i]);
+                if(models[i].scopedQuality&&!models[i].baked)++g_scopedFailures;
+            } catch (const std::exception& ex) {
+                appendf(models[i].log, "  model %s: exception %s\n", models[i].key.c_str(), ex.what());
+                models[i].baked = false;
+                if(models[i].scopedQuality)++g_scopedFailures;
+            }
+            progress.writeLog(models[i].log);
+            models[i].log.clear();
+            job.complete(models[i].baked);
+        });
+    }
     size_t modelsBaked = 0, skins = 0, pointTables = 0;
     uint64_t mBytes = 0, nBytes = 0, animBytes = 0, pBytes = 0;
     for (const ModelPlan& m : models) {
-        std::fputs(m.log.c_str(), stdout);
         if (!m.baked) continue;
         ++modelsBaked;
         skins += m.nBytes ? 1 : 0;

@@ -125,7 +125,8 @@ def test_check_and_no_network_at_import(target):
         importlib.reload(u)
     opener, requests = network()
     result = u.check_updates(target, opener=opener)
-    assert result["kiln"]["current"] == "0.2.0"
+    from kilnlib import KILN_VERSION
+    assert result["kiln"]["current"] == KILN_VERSION
     assert result["engine"]["current"] == "0.1.0"
     assert result["engine"]["latest"] == "0.1.1"
     assert result["engine"]["update_available"]

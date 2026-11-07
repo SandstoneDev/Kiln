@@ -1424,6 +1424,14 @@ public sealed partial class MainForm : Form
                 break;
             case "phase": OnPhase(e); break;
             case "step": OnStep(e); break;
+            case "step_progress":
+                if (e.Str("step") is { } progressStep && _steps.Get(progressStep) is { State: RowState.Running } progressRow &&
+                    ConversionProgress.Parse(e) is { } measured)
+                {
+                    progressRow.Progress = measured;
+                    _steps.PaintRow(progressRow);
+                }
+                break;
             case "running":
                 if (e.Obj("steps") is { } st)
                     foreach (var p in st.EnumerateObject())
@@ -1515,6 +1523,8 @@ public sealed partial class MainForm : Form
         {
             case "start":
                 row.State = RowState.Running;
+                row.Progress = null;
+                _phaseText = "";
                 row.Started = DateTime.UtcNow;
                 if (e.Str("title") is { Length: > 0 } t) row.Title = t;
                 _steps.EnsureVisibleRow(row);
@@ -1550,11 +1560,12 @@ public sealed partial class MainForm : Form
         double p = _copyFraction >= 0 ? _copyFraction : total > 0 ? done / total : 0;
         _overall.Value = Math.Clamp((int)(p * _overall.Maximum), 0, _overall.Maximum);
         double el = (DateTime.UtcNow - _runStart).TotalSeconds;
-        string eta = p > 0.03 && el > 20 ? $", about {StepList.Human(el * (1 - p) / p)} left" : "";
-        Text = $"Kiln {_inst?.Version} - {p * 100:0}%";
-        var running = _steps.Rows.Where(r => r.State == RowState.Running && !r.Phase).Select(r => r.Name).ToList();
+        Text = $"Kiln {_inst?.Version} - working";
+        var running = _steps.Rows.Where(r => r.State == RowState.Running && !r.Phase)
+            .Select(r => r.Name + (r.Progress is { } progress ? ": " + progress.Label +
+                (progress.Detail.Length > 0 ? " - " + progress.Detail : "") : "")).ToList();
         string what = _phaseText.Length > 0 ? _phaseText : running.Count > 0 ? "running: " + string.Join(", ", running.Take(5)) + (running.Count > 5 ? $" and {running.Count - 5} more" : "") : "working";
-        SetStatus($"{p * 100:0}%  -  {StepList.Human(el)} elapsed{eta}  -  {what}", null);
+        SetStatus($"Overall estimate {p * 100:0}%  -  {StepList.Human(el)} elapsed  -  {what}", null);
     }
 
     // ================================================================================== misc
@@ -1630,8 +1641,7 @@ public sealed partial class MainForm : Form
     private void OpenStepLog()
     {
         if (_steps.SelectedItems.Count == 0 || _steps.SelectedItems[0].Tag is not StepRow r) return;
-        string name = r.Phase && r.Name.StartsWith("extract [", StringComparison.Ordinal) ? "extract_" + r.Locale : r.Phase ? "kiln" : r.Name;
-        string log = Path.Combine(PcOut(), "logs", name + ".log");
+        string log = Path.Combine(PcOut(), "logs", "kiln.log");
         if (!File.Exists(log)) { SetStatus("No log yet: " + log, null); return; }
         try { Process.Start(new ProcessStartInfo(log) { UseShellExecute = true }); }
         catch (Exception ex) { SetStatus(ex.Message, Bad); }

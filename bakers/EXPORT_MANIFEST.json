@@ -1036,6 +1036,10 @@
    "sha256": "0becd80fa512a1353a8e9e7ac2fde924d088bd7865fdd96d7ca0f6665f9802de",
    "why": "converter headers"
   },
+  "tools/psp/converter/bake_progress.hpp": {
+   "sha256": "12335c1746929ff00e9ce0015bdb2c1ea58f3765eadab18f438bcf6081d410ca",
+   "why": "converter headers"
+  },
   "tools/psp/converter/bigwmo_tools.hpp": {
    "sha256": "e1c0100e3d444f7bf05bea6c27487b185262bfb0a383a6473e525e1dc7981241",
    "why": "converter headers"
@@ -1197,7 +1201,7 @@
    "why": "converter sources"
   },
   "tools/psp/converter/psp_creature_conv.cpp": {
-   "sha256": "9bce79353ddeaa1134b42a3d148be9a95601b1ef85cdfc7cceeff88166f3aa4f",
+   "sha256": "7e7425a57bfeb9c4fc993943d399306fe0ecfbc67a05e6d5976984e8e96528ed",
    "why": "converter sources"
   },
   "tools/psp/converter/psp_dbc_conv.cpp": {
@@ -1277,7 +1281,7 @@
    "why": "converter headers"
   },
   "tools/psp/converter/skin_bake.hpp": {
-   "sha256": "ae21b1fb6674259b071dc2a116da04d0ba36dee4ecccbb4b90ec64e3a4e09895",
+   "sha256": "37207df5d538c2f5355b0e7d3218dd13ba7035fe369ceab12db798de110de6c8",
    "why": "converter headers"
   },
   "tools/psp/converter/skin_fresh_import.hpp": {
@@ -1337,5 +1341,5 @@
    "why": "optional repair of the user's locally baked landmark metadata"
   }
  },
- "source_commit": "d6c1860ccf0444676b50995af8fc29dba31965ae"
+ "source_commit": "f3958bb76c73c298110f14be2e3dc852638645b4"
 }

@@ -1,5 +1,5 @@
 // The step table of a run: one row per step of the plan (and one per extraction / PNG phase), with
-// its state, a progress bar (elapsed time against the step's last duration), time and output size.
+// its state, measured phase progress when available, elapsed time and output size.
 namespace Kiln;
 
 public enum RowState { Planned, UpToDate, Queued, Running, Done, Skipped, Failed, Cancelled, Missing }
@@ -19,17 +19,18 @@ public sealed class StepRow
     public long Bytes;
     public string Note = "";
     public bool Phase;                 // extraction / PNG pass, not a step of the table
+    public ConversionProgress? Progress;
     public ListViewItem? Item;
 
     public bool Finished => State is RowState.Done or RowState.Skipped or RowState.UpToDate or RowState.Failed;
 
     public double Elapsed => State == RowState.Running && Started is { } s ? (DateTime.UtcNow - s).TotalSeconds : Seconds;
 
-    /// 0..1: finished = 1, running = elapsed against the expected time (held below 1 until it ends).
+    /// Measured phase work only; running work with no counter has no invented percentage.
     public double Fraction => State switch
     {
         RowState.Done or RowState.Skipped or RowState.UpToDate or RowState.Failed => 1.0,
-        RowState.Running => Weight > 0 ? Math.Min(0.95, Elapsed / Weight) : 0.5,
+        RowState.Running => Progress?.Fraction ?? 0,
         _ => 0.0,
     };
 }
@@ -117,7 +118,8 @@ public sealed class StepList : ListView
         double t = r.Elapsed;
         s[5].Text = r.State == RowState.Running || t > 0 ? Human(t) : r.Weight > 0 && r.HistoryWeight ? "~" + Human(r.Weight) : "";
         s[6].Text = r.Files > 0 ? $"{r.Files} / {r.Bytes / 1048576.0:0.0} MB" : "";
-        s[7].Text = r.Note.Length > 0 ? r.Title + "  (" + r.Note + ")" : r.Title;
+        string detail = r.State == RowState.Running && r.Progress is { } p ? p.Label + "; " + p.Detail : r.Note;
+        s[7].Text = detail.Length > 0 ? r.Title + "  (" + detail + ")" : r.Title;
         r.Item.ForeColor = r.State switch
         {
             RowState.Failed or RowState.Missing => Color.Firebrick,
@@ -170,6 +172,9 @@ public sealed class StepList : ListView
         }
         using var pen = new Pen(Color.FromArgb(200, 200, 200));
         e.Graphics.DrawRectangle(pen, bar);
+        if (r.State == RowState.Running)
+            TextRenderer.DrawText(e.Graphics, r.Progress?.Label ?? "working", Font, bar, Color.Black,
+                                  TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
     }
 
     public static string StateText(RowState s) => s switch

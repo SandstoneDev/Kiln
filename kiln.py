@@ -489,6 +489,10 @@ def main(argv):
                 not man.up_to_date(s.name, ctx.resume_key(s, man.step(s.name)), ctx.step_identity(s))]
 
     pending = pending_of(chosen)
+    # A killed first run must not erase its unfinished selected recipes from history.
+    for st in pending:
+        man.begin(st.name, key=ctx.step_key(st), identity=ctx.step_identity(st))
+    man.save()
     done_prefixes = {}
     need_main = [s.name for s in pending if not cl.present and ctx.step_locale(s) == cl.locale]
     if need_main:
@@ -516,8 +520,8 @@ def main(argv):
                 pre = [p for p in pre if p not in had]
                 if not pre:
                     continue
-            ctx.say("extract [%s]: %d client path prefixes from %s -> %s (logs/extract_%s.log)"
-                    % (loc, len(pre), cl.data_dir_for(loc), target, loc))
+            ctx.say("extract [%s]: %d client path prefixes from %s -> %s (logs/kiln.log)"
+                    % (loc, len(pre), cl.data_dir_for(loc), target))
             ctx.event("phase", phase="extract", state="start", locale=loc, prefixes=pre, source=cl.data_dir_for(loc))
             te = time.time()
             ctx.running["extract:%s" % loc] = te
@@ -551,6 +555,9 @@ def main(argv):
             return 2
         known = {s.name for s in pending}
         new = [s for s in pending_of(chosen) if s.name not in known]
+        for st in new:
+            man.begin(st.name, key=ctx.step_key(st), identity=ctx.step_identity(st))
+        man.save()
         extract_for(new)
         pending += new
         ctx.say("maps: %d per-map steps" % sum(1 for s in chosen if s.group.startswith("maps:")))
@@ -663,19 +670,10 @@ def retry_memory_failures(ctx, man, chosen, results):
         for i, step in enumerate(chosen, 1):
             if results.get(step.name) != "failed":
                 continue
-            log = os.path.join(ctx.logs, step.name + ".log")
-            first = os.path.join(ctx.logs, step.name + ".oom-first.log")
-            try:
-                with open(log, encoding="utf-8", errors="replace") as f:
-                    allocation_failure = any("std::bad_alloc" in line for line in f)
-                if not allocation_failure:
-                    continue
-                shutil.copyfile(log, first)
-            except OSError as e:
-                ctx.say("Cannot preserve the failed log for %s; not retrying: %s" % (step.name, e))
+            if step.name not in ctx.allocation_failures:
                 continue
             ctx.say("retry: %s reported std::bad_alloc; retrying once with one worker "
-                    "(first failure: logs/%s.oom-first.log)" % (step.name, step.name))
+                    "(both attempts remain in logs/kiln.log)" % step.name)
             # The first attempt populated FailGate; retry this step directly without
             # releasing unrelated blocked steps or retrying any other kind of crash.
             results[step.name] = run_step(ctx, man, step, i, len(chosen), must_run=True)
@@ -955,7 +953,9 @@ def update_reason(ctx, man, st):
     """Why --update re-makes a step (None: it is current)."""
     rec = man.step(st.name)
     if rec is None:
-        return "new (a locale added since the last run)"
+        return "not made yet"
+    if rec.get("status") in ("running", "pending"):
+        return "interrupted or not started last time"
     if rec.get("status") != "ok":
         return "failed last time"
     if "identity" not in rec:
@@ -1015,7 +1015,7 @@ def deep_verify(ctx, man, rep):
         for cmd in st.verify:
             if run_cmd(ctx, ctx.expand(cmd, st), log, ctx.folder(st, "W")):
                 rep.add("out", "verify", step=name, locale=ctx.step_locale(st),
-                        detail="verify pass failed (logs/%s.verify.log)" % name)
+                        detail="verify pass failed (logs/kiln.log [step=%s.verify])" % name)
                 break
 
 

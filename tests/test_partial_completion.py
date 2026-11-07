@@ -128,6 +128,20 @@ def test_engine_only_update_does_not_invalidate_unchanged_client_executable(inst
     assert (out / "data/client/game.exe").read_bytes() == b"MZ synthetic"
 
 
+def test_first_interruption_records_unstarted_selected_recipes(installation, monkeypatch):
+    out, _, _, _, _, run = installation
+    script = out.parent / "bakers/tools/psp/build_retryd_pak.py"
+    script.write_text(BAKER, encoding="utf-8")
+
+    def interrupt(*_args, **_kwargs): raise KeyboardInterrupt
+    monkeypatch.setattr(kiln, "run_gated", interrupt)
+    with pytest.raises(KeyboardInterrupt):
+        run("retrya,retryd")
+    record = Manifest(str(out), str(out / "data")).step("retryd")
+    assert record is not None and record["status"] == "pending"
+    assert record["outputs"] == []
+
+
 def memory_baker(installation, message, *, always_fail=False):
     out = installation[0]
     script = out.parent / "bakers/tools/psp/build_retrya_pak.py"
@@ -164,7 +178,8 @@ def test_bad_alloc_is_retried_once_after_workers_finish_without_rerunning_succes
     assert (out / "data/retrya.attempts").read_text() == "2"
     assert (out / "data/retrya.workers").read_text().splitlines() == ["3", "1"]
     assert (out / "data/retrya.pak").read_bytes() == b"recovered resource"
-    assert "std::bad_alloc" in (out / "logs/retrya.oom-first.log").read_text()
+    assert "std::bad_alloc" in (out / "logs/kiln.log").read_text()
+    assert sorted(p.name for p in (out / "logs").iterdir()) == ["kiln.log"]
     for name in ("retryb", "retryc"):
         assert len([e for e in events if e["event"] == "step" and e["name"] == name and e["state"] == "start"]) == 1
     assert Manifest(str(out), str(out / "data")).step("installed") == original
@@ -189,7 +204,8 @@ def test_persistent_bad_alloc_stops_after_one_retry(installation):
     assert rc == 1
     assert events[-1]["failed"] == ["retrya"]
     assert (out / "data/retrya.attempts").read_text() == "2"
-    assert "std::bad_alloc" in (out / "logs/retrya.oom-first.log").read_text()
+    assert "std::bad_alloc" in (out / "logs/kiln.log").read_text()
+    assert sorted(p.name for p in (out / "logs").iterdir()) == ["kiln.log"]
     assert (out / "EBOOT.PBP").read_bytes() == neutral
 
 

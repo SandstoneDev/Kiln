@@ -172,7 +172,12 @@ python kiln.py --game <client folder> --out <output folder> --jobs 4
 | `--app NAME` | the folder name under `ms0:/PSP/GAME/` (default `WOWEEPSP`) |
 | `--list-steps` | print the step table (with `--json`: one JSON object, `"event": "steps"`) |
 
-Logs go to `<out>/logs/` (one file per step, plus `kiln.log` and `extract_<xxYY>.log`).
+All conversion, extraction, probe and verification output goes to one append-only
+`<out>/logs/kiln.log`. Each record includes a UTC timestamp, run identifier, step and stream;
+retries and later runs stay in the same journal. Earlier log files are kept. For support, send
+this journal; it can contain your local folder paths, so check it before sharing publicly.
+Pending and running recipes are recorded before execution. An interrupted first run remains
+incomplete until those recipes finish; a selective retry keeps other installed packs unchanged.
 
 A failed step does not start the rest blindly: a converter that cannot start stops the queue, the other
 locales' copies of a failed step are not started, and a converter that failed in three steps is not
@@ -201,6 +206,14 @@ per locale, PNG pass, probes), `step` (start / ok / failed / skipped with the st
 seconds, files and bytes), `running` (every 10 s: the steps in progress, their elapsed seconds and
 their locales), `log` (the text lines), `verify`, `done` and `error`, and for the modes above `check`, `update` and
 `copy`. A front end can drive Kiln with nothing but this stream and the exit code.
+
+`step_progress` carries measured converter work: `step`, `phase`, `completed`, `total`,
+`elapsed_s`, optional `failed`, and `active` workers (`model_id`, `model`, `stage`, `work_done`,
+`work_total`, `stage_elapsed_s`). A zero total means unknown work, not an estimated percentage.
+Creature conversion reports active models and stage counters even before the first model finishes.
+Counts refer to the current phase and include failed attempts; they do not imply successful output.
+The GUI shows these counts and worker stages in Steps; its overall weighted percentage is labeled
+as an estimate. Converters without measured counters show `working` and elapsed time.
 
 ### Steps
 
